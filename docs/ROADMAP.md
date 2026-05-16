@@ -10,18 +10,20 @@ The project is divided into 6 phases, each delivering a usable increment. Each p
 
 **Goal:** Cargo workspace compiles, core object store works, basic CLI scaffolding.
 
+**Status: ✅ Complete** (commit `a393efb`).
+
 ### Deliverables
-- [ ] Cargo workspace with all crate stubs
-- [ ] `gpp-core`: Content-addressed object store (BLAKE3, zstd compression)
-  - [ ] Blob, Tree object types
-  - [ ] Read/write objects to `.gpp/objects/`
-  - [ ] Object validation (hash verification)
-- [ ] `gpp-cli`: Binary scaffold with clap
-  - [ ] `gpp init` — create `.gpp/` directory structure
-  - [ ] `gpp status` — basic status output
-  - [ ] `gpp config` — read/write TOML config
-- [ ] `.gpp/` directory layout established
-- [ ] CI pipeline: `cargo test`, `cargo clippy`, `cargo fmt`
+- [x] Cargo workspace with all crate stubs
+- [x] `gpp-core`: Content-addressed object store (BLAKE3, zstd compression)
+  - [x] Blob, Tree object types
+  - [x] Read/write objects to `.gpp/objects/`
+  - [x] Object validation (hash verification)
+- [x] `gpp-cli`: Binary scaffold with clap
+  - [x] `gpp init` — create `.gpp/` directory structure
+  - [x] `gpp status` — basic status output
+  - [x] `gpp config` — read/write TOML config
+- [x] `.gpp/` directory layout established
+- [x] CI pipeline: `cargo test`, `cargo clippy`, `cargo fmt`
 
 ### Milestone
 `gpp init` creates a valid repository. Objects can be stored and retrieved.
@@ -40,31 +42,33 @@ The project is divided into 6 phases, each delivering a usable increment. Each p
 
 **Goal:** Continuous file change capture works. Developers can promote timeline entries to changesets.
 
+**Status: ✅ Complete** (commit `ea974a9`).
+
 ### Deliverables
-- [ ] `gpp-timeline`:
-  - [ ] File system watcher (notify crate)
-  - [ ] Debouncing (100ms default)
-  - [ ] SQLite timeline database (WAL mode)
-  - [ ] Timeline entry creation (author, source, files, hashes)
-  - [ ] `.gppignore` support (same syntax as `.gitignore`)
-  - [ ] Timeline pruning (configurable retention)
-- [ ] `gpp-history`:
-  - [ ] Changeset object type
-  - [ ] Intent object type
-  - [ ] Author (Human/Agent) enum
-  - [ ] Promote timeline entries → changeset
-  - [ ] Changeset DAG (parents, branching)
-  - [ ] Branch refs
-- [ ] `gpp-diff`:
-  - [ ] Line-based diff (fallback)
-  - [ ] Basic file diff display (unified format)
-- [ ] CLI commands:
-  - [ ] `gpp timeline` — view timeline entries
-  - [ ] `gpp timeline watch` — live stream
-  - [ ] `gpp promote` — promote to changeset
-  - [ ] `gpp log` — view changeset history
-  - [ ] `gpp diff` — show changes
-  - [ ] `gpp branch` — create/switch/list branches
+- [x] `gpp-timeline`:
+  - [x] File system watcher (notify crate)
+  - [x] Debouncing (100ms default)
+  - [x] SQLite timeline database (WAL mode)
+  - [x] Timeline entry creation (author, source, files, hashes)
+  - [x] `.gppignore` support (common `.gitignore` subset — see note)
+  - [x] Timeline pruning (configurable retention)
+- [x] `gpp-history`:
+  - [x] Changeset object type
+  - [x] Intent object type
+  - [x] Author (Human/Agent) enum
+  - [x] Promote timeline entries → changeset
+  - [x] Changeset DAG (parents, branching)
+  - [x] Branch refs
+- [x] `gpp-diff`:
+  - [x] Line-based diff (fallback)
+  - [x] Basic file diff display (unified format)
+- [x] CLI commands:
+  - [x] `gpp timeline` — view timeline entries
+  - [x] `gpp timeline watch` — live stream
+  - [x] `gpp promote` — promote to changeset
+  - [x] `gpp log` — view changeset history
+  - [x] `gpp diff` — show changes
+  - [x] `gpp branch` — create/switch/list branches
 
 ### Milestone
 A developer can work on code, see continuous timeline capture, promote meaningful changes to history, and browse changeset history. **This is the "better Git for solo developers" milestone.**
@@ -73,6 +77,15 @@ A developer can work on code, see continuous timeline capture, promote meaningfu
 - `notify` — file system events
 - `rusqlite` — SQLite
 - `similar` — diff algorithm
+- `globset`, `walkdir` — added for `.gppignore` matching and tree walking (pure Rust)
+
+### Implementation notes / deviations
+- `.gppignore` implements the common `.gitignore` subset (negation, root vs.
+  basename anchoring, `**`/`*`/`?`, directory patterns), not every edge case.
+- Rename detection is recorded as delete + add for now; the `rename` change
+  type exists in the schema for a later pass.
+- `promote --interactive/--auto-summarize/--sign` are rejected with a clear
+  message (depend on AI/signing layers in later phases).
 
 ---
 
