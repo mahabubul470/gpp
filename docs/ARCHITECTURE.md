@@ -927,8 +927,8 @@ gpp ui
 ```
 ┌─ Timeline ──────────────┬─ Diff Preview ─────────────┐
 │ 14:03 agent:claude [3f] │ orders/batch.rs         │
-│ 14:01 human:hasan  [2f] │ - let total = sum as f64;   │
-│ 13:58 human:hasan  [1f] │ + let total = sum_paisa;    │
+│ 14:01 human:dev1   [2f] │ - let total = sum as f64;   │
+│ 13:58 human:dev1   [1f] │ + let total = sum_cents;    │
 ├─ History ───────────────┤                              │
 │ cs:a3f9b2 Fix rounding  │                              │
 │ cs:7e4d1c Add retry...  │                              │
