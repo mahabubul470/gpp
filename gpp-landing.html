@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>gpp — git++ | AI-Native Version Control</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700;800&family=Space+Grotesk:wght@300;400;500;600;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-deep: #06080d;
+    --bg-surface: #0c1019;
+    --bg-card: #111827;
+    --bg-card-hover: #1a2332;
+    --green: #22f5a0;
+    --green-dim: #14a86a;
+    --green-glow: rgba(34, 245, 160, 0.15);
+    --cyan: #38d9f5;
+    --cyan-dim: #1e8fa3;
+    --amber: #f5b342;
+    --red: #f54257;
+    --purple: #a78bfa;
+    --text-primary: #e8ecf4;
+    --text-secondary: #8892a4;
+    --text-dim: #4a5568;
+    --border: #1e293b;
+    --border-light: #2d3a4d;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg-deep);
+    color: var(--text-primary);
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ─── Grain overlay ─── */
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* ─── Nav ─── */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    padding: 20px 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(6, 8, 13, 0.8);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .nav-logo {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--green);
+    text-decoration: none;
+    letter-spacing: -0.5px;
+  }
+  .nav-logo span { color: var(--text-dim); font-weight: 400; }
+
+  .nav-links { display: flex; gap: 32px; align-items: center; }
+  .nav-links a {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+  .nav-links a:hover { color: var(--green); }
+
+  .nav-cta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    padding: 8px 20px;
+    background: var(--green);
+    color: var(--bg-deep);
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s;
+  }
+  .nav-cta:hover { box-shadow: 0 0 24px var(--green-glow); transform: translateY(-1px); }
+
+  /* ─── Hero ─── */
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 140px 24px 80px;
+    position: relative;
+  }
+
+  .hero-grid-bg {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-image:
+      linear-gradient(rgba(34, 245, 160, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(34, 245, 160, 0.03) 1px, transparent 1px);
+    background-size: 64px 64px;
+    mask-image: radial-gradient(ellipse 60% 50% at 50% 40%, black 20%, transparent 70%);
+  }
+
+  .hero-glow {
+    position: absolute;
+    width: 600px; height: 600px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(34, 245, 160, 0.08), transparent 70%);
+    top: 10%; left: 50%; transform: translateX(-50%);
+    pointer-events: none;
+  }
+
+  .hero-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--green);
+    background: rgba(34, 245, 160, 0.08);
+    border: 1px solid rgba(34, 245, 160, 0.2);
+    padding: 6px 16px;
+    border-radius: 100px;
+    margin-bottom: 32px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    display: inline-block;
+    animation: fadeInDown 0.8s ease;
+  }
+
+  .hero h1 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: clamp(56px, 8vw, 96px);
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -3px;
+    margin-bottom: 8px;
+    position: relative;
+    animation: fadeInUp 0.8s ease;
+  }
+  .hero h1 .plus {
+    color: var(--green);
+    text-shadow: 0 0 40px var(--green-glow);
+  }
+
+  .hero-tagline {
+    font-size: clamp(20px, 3vw, 28px);
+    font-weight: 300;
+    color: var(--text-secondary);
+    margin-bottom: 40px;
+    max-width: 600px;
+    line-height: 1.5;
+    animation: fadeInUp 0.8s ease 0.1s both;
+  }
+  .hero-tagline strong { color: var(--text-primary); font-weight: 500; }
+
+  .hero-terminal {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 0;
+    max-width: 540px;
+    width: 100%;
+    text-align: left;
+    margin-bottom: 48px;
+    overflow: hidden;
+    animation: fadeInUp 0.8s ease 0.2s both;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.4);
+  }
+
+  .terminal-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border);
+  }
+  .terminal-dot {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+  }
+  .terminal-dot.r { background: #f54257; }
+  .terminal-dot.y { background: #f5b342; }
+  .terminal-dot.g { background: #22f5a0; }
+  .terminal-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-left: 8px;
+  }
+
+  .terminal-body {
+    padding: 20px 24px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    line-height: 2;
+  }
+  .terminal-body .prompt { color: var(--green); }
+  .terminal-body .cmd { color: var(--text-primary); }
+  .terminal-body .flag { color: var(--cyan); }
+  .terminal-body .comment { color: var(--text-dim); }
+  .terminal-body .output { color: var(--text-secondary); font-size: 12px; }
+
+  .hero-actions {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+    animation: fadeInUp 0.8s ease 0.3s both;
+  }
+
+  .btn-primary {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 15px;
+    font-weight: 600;
+    padding: 14px 32px;
+    background: var(--green);
+    color: var(--bg-deep);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.25s;
+  }
+  .btn-primary:hover {
+    box-shadow: 0 0 32px rgba(34, 245, 160, 0.3);
+    transform: translateY(-2px);
+  }
+
+  .btn-secondary {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 15px;
+    font-weight: 500;
+    padding: 14px 32px;
+    background: transparent;
+    color: var(--text-primary);
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.25s;
+  }
+  .btn-secondary:hover {
+    border-color: var(--green);
+    color: var(--green);
+    transform: translateY(-2px);
+  }
+
+  /* ─── Stats bar ─── */
+  .stats-bar {
+    display: flex;
+    justify-content: center;
+    gap: 64px;
+    padding: 48px 24px;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .stat { text-align: center; }
+  .stat-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 36px;
+    font-weight: 800;
+    color: var(--green);
+  }
+  .stat-label {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+  }
+
+  /* ─── Section styling ─── */
+  section {
+    padding: 120px 24px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--green);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+
+  .section-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: clamp(32px, 4vw, 48px);
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -1.5px;
+    margin-bottom: 20px;
+  }
+
+  .section-desc {
+    font-size: 18px;
+    color: var(--text-secondary);
+    max-width: 640px;
+    line-height: 1.7;
+    margin-bottom: 64px;
+  }
+
+  /* ─── Architecture diagram ─── */
+  .arch-container {
+    position: relative;
+    padding: 120px 24px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .arch-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 2px;
+    background: var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+
+  .arch-layer {
+    background: var(--bg-surface);
+    padding: 32px;
+    position: relative;
+    transition: all 0.3s;
+  }
+  .arch-layer:hover {
+    background: var(--bg-card);
+  }
+
+  .arch-layer.full-width {
+    grid-column: 1 / -1;
+  }
+
+  .arch-layer.span-2 {
+    grid-column: span 2;
+  }
+
+  .arch-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    margin-bottom: 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+  }
+
+  .arch-icon.green { background: rgba(34, 245, 160, 0.12); color: var(--green); }
+  .arch-icon.cyan { background: rgba(56, 217, 245, 0.12); color: var(--cyan); }
+  .arch-icon.amber { background: rgba(245, 179, 66, 0.12); color: var(--amber); }
+  .arch-icon.red { background: rgba(245, 66, 87, 0.12); color: var(--red); }
+  .arch-icon.purple { background: rgba(167, 139, 250, 0.12); color: var(--purple); }
+
+  .arch-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--text-primary);
+  }
+
+  .arch-desc {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  .arch-tag {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    margin-top: 12px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .arch-tag.core { background: rgba(34, 245, 160, 0.1); color: var(--green); }
+  .arch-tag.intelligence { background: rgba(56, 217, 245, 0.1); color: var(--cyan); }
+  .arch-tag.security { background: rgba(245, 66, 87, 0.1); color: var(--red); }
+  .arch-tag.infra { background: rgba(167, 139, 250, 0.1); color: var(--purple); }
+
+  /* ─── Features grid ─── */
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    gap: 24px;
+  }
+
+  .feature-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 36px;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
+  .feature-card:hover {
+    border-color: var(--border-light);
+    transform: translateY(-4px);
+    box-shadow: 0 16px 48px rgba(0,0,0,0.3);
+  }
+  .feature-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--green), transparent);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .feature-card:hover::before { opacity: 1; }
+
+  .feature-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 48px;
+    font-weight: 800;
+    color: var(--border-light);
+    line-height: 1;
+    margin-bottom: 16px;
+  }
+
+  .feature-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: var(--text-primary);
+  }
+
+  .feature-text {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.7;
+  }
+
+  .feature-highlight {
+    color: var(--green);
+    font-weight: 500;
+  }
+
+  /* ─── Comparison ─── */
+  .comparison {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    margin-top: 48px;
+  }
+
+  .compare-col {
+    border-radius: 16px;
+    padding: 40px;
+    border: 1px solid var(--border);
+  }
+  .compare-col.old { background: var(--bg-surface); }
+  .compare-col.new {
+    background: linear-gradient(135deg, rgba(34, 245, 160, 0.04), rgba(56, 217, 245, 0.04));
+    border-color: rgba(34, 245, 160, 0.2);
+  }
+
+  .compare-header {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 32px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .compare-header .dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+  }
+  .compare-header .dot.red { background: var(--red); }
+  .compare-header .dot.green { background: var(--green); box-shadow: 0 0 12px var(--green-glow); }
+
+  .compare-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+  .compare-item:last-child { border-bottom: none; }
+  .compare-item .icon { font-size: 16px; flex-shrink: 0; margin-top: 2px; }
+
+  /* ─── CLI showcase ─── */
+  .cli-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+
+  .cli-block {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .cli-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+    padding: 12px 20px;
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .cli-code {
+    padding: 20px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 2;
+    overflow-x: auto;
+  }
+  .cli-code .p { color: var(--green); }
+  .cli-code .c { color: var(--text-primary); }
+  .cli-code .f { color: var(--cyan); }
+  .cli-code .o { color: var(--text-secondary); font-size: 12px; }
+  .cli-code .a { color: var(--amber); }
+  .cli-code .r { color: var(--red); }
+  .cli-code .d { color: var(--text-dim); }
+
+  /* ─── Footer ─── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 64px 48px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 24px;
+  }
+
+  .footer-logo {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--green);
+  }
+  .footer-logo span { color: var(--text-dim); font-weight: 300; }
+
+  .footer-links {
+    display: flex;
+    gap: 32px;
+  }
+  .footer-links a {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+  .footer-links a:hover { color: var(--green); }
+
+  .footer-copy {
+    font-size: 13px;
+    color: var(--text-dim);
+    width: 100%;
+    text-align: center;
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+  }
+
+  /* ─── CTA Section ─── */
+  .cta-section {
+    text-align: center;
+    padding: 120px 24px;
+    position: relative;
+  }
+
+  .cta-glow {
+    position: absolute;
+    width: 400px; height: 400px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(34, 245, 160, 0.06), transparent 70%);
+    top: 50%; left: 50%; transform: translate(-50%, -50%);
+  }
+
+  .cta-section h2 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: clamp(32px, 4vw, 52px);
+    font-weight: 800;
+    letter-spacing: -2px;
+    margin-bottom: 20px;
+    position: relative;
+  }
+
+  .cta-section p {
+    font-size: 18px;
+    color: var(--text-secondary);
+    margin-bottom: 40px;
+    position: relative;
+  }
+
+  .cta-install {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 32px;
+    color: var(--text-primary);
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    position: relative;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .cta-install:hover {
+    border-color: var(--green);
+    box-shadow: 0 0 32px rgba(34, 245, 160, 0.1);
+  }
+  .cta-install .dollar { color: var(--green); }
+  .cta-install .copy-hint {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-left: 16px;
+    padding-left: 16px;
+    border-left: 1px solid var(--border);
+  }
+
+  /* ─── Animations ─── */
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeInDown {
+    from { opacity: 0; transform: translateY(-16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ─── Responsive ─── */
+  @media (max-width: 768px) {
+    nav { padding: 16px 20px; }
+    .nav-links { display: none; }
+    .arch-grid { grid-template-columns: 1fr; }
+    .arch-layer.span-2 { grid-column: span 1; }
+    .comparison { grid-template-columns: 1fr; }
+    .cli-grid { grid-template-columns: 1fr; }
+    .features-grid { grid-template-columns: 1fr; }
+    .stats-bar { gap: 32px; }
+    footer { flex-direction: column; text-align: center; }
+    .footer-links { flex-wrap: wrap; justify-content: center; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav>
+  <a href="#" class="nav-logo">gpp <span>// git++</span></a>
+  <div class="nav-links">
+    <a href="#architecture">Architecture</a>
+    <a href="#features">Features</a>
+    <a href="#compare">Git vs gpp</a>
+    <a href="#cli">CLI</a>
+  </div>
+  <button class="nav-cta">Get Early Access</button>
+</nav>
+
+<!-- Hero -->
+<div class="hero">
+  <div class="hero-grid-bg"></div>
+  <div class="hero-glow"></div>
+
+  <div class="hero-badge">⚡ Version Control, Reinvented for AI</div>
+
+  <h1>git<span class="plus">++</span></h1>
+
+  <p class="hero-tagline">
+    The <strong>AI-native version control</strong> platform with continuous capture, encrypted knowledge graphs, and agent-aware collaboration.
+  </p>
+
+  <div class="hero-terminal">
+    <div class="terminal-bar">
+      <div class="terminal-dot r"></div>
+      <div class="terminal-dot y"></div>
+      <div class="terminal-dot g"></div>
+      <span class="terminal-title">~/webapp-pgw</span>
+    </div>
+    <div class="terminal-body">
+      <span class="prompt">$</span> <span class="cmd">gpp init</span> <span class="flag">--graphex</span><br>
+      <span class="output">✓ Initialized gpp repo with Graphex knowledge layer</span><br>
+      <span class="prompt">$</span> <span class="cmd">gpp timeline</span><br>
+      <span class="output">✓ Continuous capture active — 847 states recorded</span><br>
+      <span class="prompt">$</span> <span class="cmd">gpp graphex query</span> <span class="flag">"orders → *"</span><br>
+      <span class="output">✓ 12 nodes found — 3 services, 4 policies, 5 schemas</span><br>
+      <span class="prompt">$</span> <span class="cmd">gpp trust</span> <span class="flag">--agent claude-code</span><br>
+      <span class="output">✓ Agent score: 94.2 — auto-merge eligible on low-risk</span>
+    </div>
+  </div>
+
+  <div class="hero-actions">
+    <button class="btn-primary">Star on GitHub →</button>
+    <button class="btn-secondary">Read the Spec</button>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="stats-bar">
+  <div class="stat">
+    <div class="stat-num">12</div>
+    <div class="stat-label">Core Layers</div>
+  </div>
+  <div class="stat">
+    <div class="stat-num">0</div>
+    <div class="stat-label">Context Leaked</div>
+  </div>
+  <div class="stat">
+    <div class="stat-num">∞</div>
+    <div class="stat-label">Undo History</div>
+  </div>
+  <div class="stat">
+    <div class="stat-num">E2E</div>
+    <div class="stat-label">Encrypted</div>
+  </div>
+</div>
+
+<!-- Architecture -->
+<section id="architecture" class="arch-container">
+  <div class="section-label">// Architecture</div>
+  <div class="section-title">12 layers. One platform.</div>
+  <div class="section-desc">Every layer is purpose-built for a world where AI agents are first-class contributors, not afterthoughts.</div>
+
+  <div class="arch-grid">
+    <!-- Row 1: Core -->
+    <div class="arch-layer">
+      <div class="arch-icon green">01</div>
+      <div class="arch-name">Storage</div>
+      <div class="arch-desc">Content-addressed, encrypted blobs. Richer object types: semantic diffs, intent records, agent metadata.</div>
+      <span class="arch-tag core">Core</span>
+    </div>
+    <div class="arch-layer">
+      <div class="arch-icon green">02</div>
+      <div class="arch-name">Timeline</div>
+      <div class="arch-desc">Continuous, append-only capture of every file change. Your always-on safety net.</div>
+      <span class="arch-tag core">Core</span>
+    </div>
+    <div class="arch-layer">
+      <div class="arch-icon green">03</div>
+      <div class="arch-name">History</div>
+      <div class="arch-desc">Curated changesets with conversation threads. Promoted from timeline by humans or AI.</div>
+      <span class="arch-tag core">Core</span>
+    </div>
+
+    <!-- Row 2: Intelligence -->
+    <div class="arch-layer span-2">
+      <div class="arch-icon cyan">04</div>
+      <div class="arch-name">Graphex — Encrypted Knowledge Graph</div>
+      <div class="arch-desc">Versioned project knowledge with tiered encryption, zero-knowledge sync, and cross-project federation. The project brain that agents query locally — nothing leaks to external APIs.</div>
+      <span class="arch-tag intelligence">Intelligence</span>
+    </div>
+    <div class="arch-layer">
+      <div class="arch-icon cyan">05</div>
+      <div class="arch-name">Trust Engine</div>
+      <div class="arch-desc">Agent reputation scoring. Behavioral RBAC that adapts based on track record.</div>
+      <span class="arch-tag intelligence">Intelligence</span>
+    </div>
+
+    <!-- Row 3: Safety -->
+    <div class="arch-layer">
+      <div class="arch-icon red">06</div>
+      <div class="arch-name">Policy Engine</div>
+      <div class="arch-desc">Compliance-as-code. Secrets blocking, review rules, and regulatory gates at the storage layer.</div>
+      <span class="arch-tag security">Security</span>
+    </div>
+    <div class="arch-layer">
+      <div class="arch-icon red">07</div>
+      <div class="arch-name">Anomaly Detection</div>
+      <div class="arch-desc">Pattern monitoring for agent behavior. Flags unusual changes before they land.</div>
+      <span class="arch-tag security">Security</span>
+    </div>
+    <div class="arch-layer">
+      <div class="arch-icon amber">08</div>
+      <div class="arch-name">Cost Attribution</div>
+      <div class="arch-desc">Token-level tracking per changeset. Budget policies and per-module spend analytics.</div>
+      <span class="arch-tag intelligence">Intelligence</span>
+    </div>
+
+    <!-- Row 4: Infra -->
+    <div class="arch-layer">
+      <div class="arch-icon purple">09</div>
+      <div class="arch-name">Semantic Diff</div>
+      <div class="arch-desc">Structure-aware diffing. Renames, moves, and refactors shown as single operations.</div>
+      <span class="arch-tag infra">Infra</span>
+    </div>
+    <div class="arch-layer">
+      <div class="arch-icon purple">10</div>
+      <div class="arch-name">Replay Engine</div>
+      <div class="arch-desc">Reproducible agent environments. Snapshot and re-run any AI session exactly.</div>
+      <span class="arch-tag infra">Infra</span>
+    </div>
+    <div class="arch-layer">
+      <div class="arch-icon purple">11</div>
+      <div class="arch-name">Dependencies</div>
+      <div class="arch-desc">Live risk-aware dependency intelligence with maintenance health and CVE tracking.</div>
+      <span class="arch-tag infra">Infra</span>
+    </div>
+
+    <!-- Row 5: Foundation -->
+    <div class="arch-layer full-width" style="display: flex; gap: 48px; align-items: center;">
+      <div>
+        <div class="arch-icon green">12</div>
+      </div>
+      <div>
+        <div class="arch-name">Sync Protocol — CRDT-based, offline-first, zero-knowledge replication</div>
+        <div class="arch-desc">Peer-to-peer. No single point of failure. Works on a plane, during load-shedding, or across continents. Plugin ecosystem for parsers, integrations, compliance templates, and visualization.</div>
+        <span class="arch-tag core">Foundation</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Features -->
+<section id="features">
+  <div class="section-label">// Why gpp</div>
+  <div class="section-title">Built for how code<br>is actually written now.</div>
+  <div class="section-desc">Git was designed for humans making deliberate commits. AI agents don't work that way. Neither should your version control.</div>
+
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-num">01</div>
+      <div class="feature-title">Continuous Capture</div>
+      <div class="feature-text">Every file change recorded automatically. Two layers: a <span class="feature-highlight">high-frequency timeline</span> for safety and a curated history for collaboration. Never lose work between commits again.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-num">02</div>
+      <div class="feature-title">Graphex Knowledge Layer</div>
+      <div class="feature-text">A <span class="feature-highlight">versioned, encrypted knowledge graph</span> inside your repo. Agents query project architecture, conventions, and domain terms locally. Context stays yours — nothing leaks.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-num">03</div>
+      <div class="feature-title">Agent-Aware Collaboration</div>
+      <div class="feature-text">First-class agent identity. Sandboxed exploration branches. <span class="feature-highlight">Try → evaluate → accept</span> workflow instead of commit → revert. Parallel approach testing built in.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-num">04</div>
+      <div class="feature-title">Semantic Diffing</div>
+      <div class="feature-text">Structure-aware, not line-aware. A variable rename across 40 files shows as <span class="feature-highlight">one semantic operation</span>. AI refactors become reviewable in seconds.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-num">05</div>
+      <div class="feature-title">Zero-Knowledge Sync</div>
+      <div class="feature-text">CRDT-based peer-to-peer replication. <span class="feature-highlight">No central server dependency</span>. Agents share graph updates without exposing context windows. Works offline.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-num">06</div>
+      <div class="feature-title">Compliance Built In</div>
+      <div class="feature-text">Policies-as-code enforced at the storage layer. Full provenance chain from <span class="feature-highlight">prompt → agent → changeset → deploy</span>. Audit-ready by default.</div>
+    </div>
+  </div>
+</section>
+
+<!-- Comparison -->
+<section id="compare">
+  <div class="section-label">// Comparison</div>
+  <div class="section-title">What changes.</div>
+  <div class="section-desc">Same goal — track code — fundamentally different assumptions about who's writing it and how.</div>
+
+  <div class="comparison">
+    <div class="compare-col old">
+      <div class="compare-header"><span class="dot red"></span> Git</div>
+      <div class="compare-item"><span class="icon">✕</span> Manual commits only — gaps lose AI work</div>
+      <div class="compare-item"><span class="icon">✕</span> Line-based diffs — AI refactors unreadable</div>
+      <div class="compare-item"><span class="icon">✕</span> No agent awareness — all contributors equal</div>
+      <div class="compare-item"><span class="icon">✕</span> Context rebuilt from scratch every session</div>
+      <div class="compare-item"><span class="icon">✕</span> No encryption — secrets leak as hooks fail</div>
+      <div class="compare-item"><span class="icon">✕</span> Central platform dependency (GitHub outages)</div>
+      <div class="compare-item"><span class="icon">✕</span> File-path CODEOWNERS — stale within weeks</div>
+      <div class="compare-item"><span class="icon">✕</span> No cost visibility on AI-generated changes</div>
+      <div class="compare-item"><span class="icon">✕</span> Conflict markers dumped in files — figure it out</div>
+    </div>
+    <div class="compare-col new">
+      <div class="compare-header"><span class="dot green"></span> gpp</div>
+      <div class="compare-item"><span class="icon">✓</span> Continuous timeline — every state captured</div>
+      <div class="compare-item"><span class="icon">✓</span> Semantic diffs — renames and moves as one op</div>
+      <div class="compare-item"><span class="icon">✓</span> Agent identity, trust scores, sandboxing</div>
+      <div class="compare-item"><span class="icon">✓</span> Graphex — persistent, encrypted project brain</div>
+      <div class="compare-item"><span class="icon">✓</span> Policy engine blocks secrets at storage layer</div>
+      <div class="compare-item"><span class="icon">✓</span> P2P CRDT sync — no single point of failure</div>
+      <div class="compare-item"><span class="icon">✓</span> Semantic ownership follows concepts, not paths</div>
+      <div class="compare-item"><span class="icon">✓</span> Token-level cost attribution per changeset</div>
+      <div class="compare-item"><span class="icon">✓</span> AI-assisted conflict resolution with intent</div>
+    </div>
+  </div>
+</section>
+
+<!-- CLI Showcase -->
+<section id="cli">
+  <div class="section-label">// Interface</div>
+  <div class="section-title">Clean CLI. Powerful SDK.</div>
+  <div class="section-desc">Designed for humans to type and agents to call programmatically. Every command fits the AI-native workflow.</div>
+
+  <div class="cli-grid">
+    <div class="cli-block">
+      <div class="cli-label">Core Workflow</div>
+      <div class="cli-code">
+        <span class="p">$</span> <span class="c">gpp init</span> <span class="f">--graphex</span><br>
+        <span class="p">$</span> <span class="c">gpp timeline</span><br>
+        <span class="o">&nbsp; ┌ 14:03:22 — 12 files changed (agent:claude)</span><br>
+        <span class="o">&nbsp; ├ 14:01:47 — 3 files changed (human:hasan)</span><br>
+        <span class="o">&nbsp; └ 13:58:11 — 1 file changed (human:hasan)</span><br>
+        <span class="p">$</span> <span class="c">gpp promote</span> <span class="f">--from 14:01</span><br>
+        <span class="o">&nbsp; ✓ Changeset cs:a3f9b2 created</span>
+      </div>
+    </div>
+    <div class="cli-block">
+      <div class="cli-label">Knowledge Graph</div>
+      <div class="cli-code">
+        <span class="p">$</span> <span class="c">gpp graphex query</span> <span class="f">"auth → depends-on → *"</span><br>
+        <span class="o">&nbsp; auth → user-service (gRPC)</span><br>
+        <span class="o">&nbsp; auth → token-store (Redis)</span><br>
+        <span class="o">&nbsp; auth → auth-module (internal API)</span><br>
+        <span class="p">$</span> <span class="c">gpp graphex add</span> <span class="f">--node "rate-limiter"</span><br>
+        <span class="o">&nbsp; ✓ Node added — connect with `gpp graphex link`</span>
+      </div>
+    </div>
+    <div class="cli-block">
+      <div class="cli-label">Agent Trust</div>
+      <div class="cli-code">
+        <span class="p">$</span> <span class="c">gpp trust show</span><br>
+        <span class="o">&nbsp; agent:claude-code &nbsp; <span class="a">94.2</span> &nbsp; auto-merge: low-risk</span><br>
+        <span class="o">&nbsp; agent:copilot &nbsp;&nbsp;&nbsp;&nbsp; <span class="a">81.7</span> &nbsp; review: required</span><br>
+        <span class="o">&nbsp; agent:codex &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="r">62.3</span> &nbsp; sandboxed</span><br>
+        <span class="p">$</span> <span class="c">gpp trust policy</span> <span class="f">--min-score 85</span><br>
+        <span class="o">&nbsp; ✓ Auto-merge threshold set to 85</span>
+      </div>
+    </div>
+    <div class="cli-block">
+      <div class="cli-label">Compliance & Cost</div>
+      <div class="cli-code">
+        <span class="p">$</span> <span class="c">gpp cost</span> <span class="f">--this-week</span><br>
+        <span class="o">&nbsp; Total: $47.20 across 142 changesets</span><br>
+        <span class="o">&nbsp; orders-service: <span class="r">$18.40</span> (39%)</span><br>
+        <span class="o">&nbsp; auth-service: $6.10 (13%)</span><br>
+        <span class="p">$</span> <span class="c">gpp audit</span> <span class="f">--module orders --export pdf</span><br>
+        <span class="o">&nbsp; ✓ Compliance report → audit-2026-05-16.pdf</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<div class="cta-section">
+  <div class="cta-glow"></div>
+  <h2>Version control<br>for the <span style="color: var(--green)">agent age</span>.</h2>
+  <p>Built in Rust. Open source. Coming soon.</p>
+  <div class="cta-install" onclick="navigator.clipboard.writeText('cargo install gpp')">
+    <span class="dollar">$</span> cargo install gpp
+    <span class="copy-hint">click to copy</span>
+  </div>
+</div>
+
+<!-- Footer -->
+<footer>
+  <div class="footer-logo">gpp <span>// git++</span></div>
+  <div class="footer-links">
+    <a href="#">GitHub</a>
+    <a href="#">Docs</a>
+    <a href="#">Spec</a>
+    <a href="#">Discord</a>
+    <a href="#">Blog</a>
+  </div>
+  <div class="footer-copy">© 2026 gpp contributors — MIT License</div>
+</footer>
+
+</body>
+</html>

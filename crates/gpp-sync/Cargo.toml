@@ -1,0 +1,9 @@
+[package]
+name = "gpp-sync"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "gpp-sync (stub — not yet implemented; see docs/ROADMAP.md)"
+
+[dependencies]

@@ -1,0 +1,9 @@
+# Rust build artifacts
+/target
+**/*.rs.bk
+
+# A gpp repo's own runtime state (don't commit it into the gpp source tree)
+.gpp/
+
+# Provided source bundle (docs already unpacked into docs/)
+/files.zip

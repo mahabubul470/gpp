@@ -1,0 +1,100 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/gpp-core",
+    "crates/gpp-timeline",
+    "crates/gpp-history",
+    "crates/gpp-diff",
+    "crates/gpp-graphex",
+    "crates/gpp-trust",
+    "crates/gpp-policy",
+    "crates/gpp-review",
+    "crates/gpp-rbac",
+    "crates/gpp-notify",
+    "crates/gpp-remote",
+    "crates/gpp-sync",
+    "crates/gpp-relay",
+    "crates/gpp-cost",
+    "crates/gpp-deps",
+    "crates/gpp-anomaly",
+    "crates/gpp-replay",
+    "crates/gpp-sdk",
+    "crates/gpp-tui",
+    "crates/gpp-cli",
+    "crates/gpp-git-bridge",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/gpp-vcs/gpp"
+description = "AI-native version control system"
+
+[workspace.dependencies]
+# Hashing & Crypto
+blake3 = "1"
+age = "0.10"
+aes-gcm = "0.10"
+
+# Compression
+zstd = "0.13"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+rmp-serde = "1"
+
+# Database
+rusqlite = { version = "0.31", features = ["bundled"] }
+
+# CLI
+clap = { version = "4", features = ["derive"] }
+
+# Error handling
+anyhow = "1"
+thiserror = "2"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+# File system
+notify = "7"
+tempfile = "3"
+
+# Tree-sitter
+tree-sitter = "0.24"
+
+# Git interop
+git2 = "0.19"
+
+# Networking
+snow = "0.9"           # Noise protocol
+tokio = { version = "1", features = ["full"] }
+
+# HTTP client (webhooks, platform APIs)
+reqwest = { version = "0.12", features = ["json"] }
+octocrab = "0.41"      # GitHub API
+
+# Email
+lettre = "0.11"
+
+# Crypto (webhooks)
+hmac = "0.12"
+sha2 = "0.10"
+
+# TUI
+ratatui = "0.29"
+crossterm = "0.28"
+
+# Testing
+criterion = "0.5"
+assert_cmd = "2"
+predicates = "3"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
