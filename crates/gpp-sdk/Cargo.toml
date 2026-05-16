@@ -4,6 +4,16 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "gpp-sdk (stub — not yet implemented; see docs/ROADMAP.md)"
+description = "gpp agent SDK — Tier 3 native agent integration"
 
 [dependencies]
+gpp-core = { path = "../gpp-core" }
+gpp-timeline = { path = "../gpp-timeline" }
+gpp-history = { path = "../gpp-history" }
+gpp-graphex = { path = "../gpp-graphex" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

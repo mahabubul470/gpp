@@ -16,6 +16,8 @@ gpp-timeline = { path = "../gpp-timeline" }
 gpp-history = { path = "../gpp-history" }
 gpp-diff = { path = "../gpp-diff" }
 gpp-git-bridge = { path = "../gpp-git-bridge" }
+gpp-graphex = { path = "../gpp-graphex" }
+gpp-sdk = { path = "../gpp-sdk" }
 globset.workspace = true
 clap.workspace = true
 anyhow.workspace = true

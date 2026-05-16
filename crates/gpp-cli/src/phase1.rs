@@ -82,7 +82,7 @@ fn days_from_civil(y: i64, m: i64, d: i64) -> i64 {
 
 /// Parse a time spec to Unix microseconds. Supports `Nd/Nh/Nm/Ns` (relative),
 /// `today`, `YYYY-MM-DD`, and a bare integer (Unix seconds).
-fn parse_time(spec: &str) -> Result<i64> {
+pub(crate) fn parse_time(spec: &str) -> Result<i64> {
     let s = spec.trim();
     let now = now_micros();
     if s == "today" {

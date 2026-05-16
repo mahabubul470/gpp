@@ -144,43 +144,68 @@ Developers can import existing Git repos and immediately see better diffs. **Thi
 
 **Goal:** The encrypted knowledge graph works. Agents can query it via MCP.
 
+**Status: ✅ Complete.**
+
 ### Deliverables
-- [ ] `gpp-graphex`:
-  - [ ] GraphNode and GraphEdge object types
-  - [ ] SQLite adjacency index
-  - [ ] Envelope encryption (age)
-  - [ ] Access tier system (public, agent-readable, agent-restricted, human-only)
-  - [ ] Key hierarchy and key management
-  - [ ] Node lifecycle (proposed → active → deprecated → archived)
-  - [ ] Graph query engine (path pattern language)
-  - [ ] Context projection engine
-    - [ ] Subgraph selection
-    - [ ] Tier filtering
-    - [ ] Scrubbing
-    - [ ] Token budget truncation
-  - [ ] Graph access audit log
-  - [ ] Auto-inference from semantic diffs (propose nodes for new modules/services)
-  - [ ] Manual node/edge CRUD via CLI
-- [ ] `gpp-sdk` (initial):
-  - [ ] Rust SDK for agent integration
-  - [ ] `AgentSession` struct
-  - [ ] `query_graphex()`, `propose_changeset()`, `propose_graph_update()`
-- [ ] MCP server (initial):
-  - [ ] `gpp mcp-server --stdio`
-  - [ ] `graphex_query`, `graphex_status`, `graphex_glossary`, `graphex_conventions` tools
-  - [ ] `propose_changeset`, `propose_graph_update` tools
-- [ ] CLI commands:
-  - [ ] `gpp graphex` (all subcommands)
-  - [ ] `gpp mcp-server`
-  - [ ] `gpp keys` (generate, rotate, show)
+- [x] `gpp-graphex`:
+  - [x] GraphNode and GraphEdge object types
+  - [x] SQLite adjacency index
+  - [x] Envelope encryption (age master + per-tier AES-256-GCM)
+  - [x] Access tier system (public, agent-readable, agent-restricted, human-only)
+  - [x] Key hierarchy and key management
+  - [x] Node lifecycle (proposed → active → deprecated → archived)
+  - [x] Graph query engine (path pattern language)
+  - [x] Context projection engine
+    - [x] Subgraph selection
+    - [x] Tier filtering
+    - [x] Scrubbing (over-tier nodes never decrypted/shown)
+    - [x] Token budget truncation
+  - [x] Graph access audit log
+  - [x] Auto-inference from changed paths (propose nodes for new modules)
+  - [x] Manual node/edge CRUD via CLI
+- [x] `gpp-sdk` (initial):
+  - [x] Rust SDK for agent integration
+  - [x] `AgentSession` struct
+  - [x] `query_graphex()`, `propose_changeset()`, `propose_graph_update()`
+- [x] MCP server (initial):
+  - [x] `gpp mcp-server --stdio`
+  - [x] `graphex_query`, `graphex_status`, `graphex_glossary`, `graphex_conventions` tools
+  - [x] `propose_changeset`, `propose_graph_update` tools
+- [x] CLI commands:
+  - [x] `gpp graphex` (status/query/project/add/link/show/list/pending/accept/reject/audit/infer)
+  - [x] `gpp mcp-server`
+  - [x] `gpp keys` (generate, rotate, show)
 
 ### Milestone
 AI tools (Claude Code, Cursor, etc.) can connect via MCP, query the knowledge graph, and propose changes. **This is the "AI-native" milestone — the core differentiator.**
 
 ### Dependencies (new)
-- `age` — encryption
-- `aes-gcm` — symmetric encryption
-- `mcp-sdk` or custom MCP implementation
+- `age` — master-identity envelope encryption
+- `aes-gcm` — per-tier symmetric node encryption
+- `getrandom` — key/nonce generation
+- custom MCP implementation (JSON-RPC 2.0 over newline-delimited stdio; no
+  external MCP SDK — keeps the pure-Rust, single-binary constraint)
+
+### Implementation notes / deviations
+- Encrypted nodes are stored as ordinary content-addressed `Blob`s
+  (`wire(zstd(msgpack))` sealed with the tier key); `graph.db` indexes
+  metadata + a pointer to the current blob. This avoided changing the
+  gpp-core wire format / `ObjectType` set. Node identity is *stable*
+  (`blake3("{type}:{name}")`) so edits re-encrypt the same logical node and
+  keep its edges; old blobs remain in object history.
+- `master.age` stores the X25519 identity directly and `human-only` is
+  master-sealed like other tiers — passphrase-wrapping of the master key and
+  passphrase-gated `human-only` is a later hardening pass (the tier is still
+  fully scrub-enforced in projection today).
+- Query results are metadata-only (names/types/relations) and never decrypt
+  content; decryption happens exclusively in the tier-gated projection path,
+  which writes a `graph_access_log` entry (accessor, nodes, projection hash).
+- Auto-inference keys off changed file *paths* of the HEAD changeset
+  (`gpp graphex infer`), proposing `Module` nodes; richer semantic-diff-driven
+  edge inference is a future enhancement. `AddEdge` proposals are applied
+  directly (edges carry no secret content); `AddNode` requires human approval.
+- Federation (publish/subscribe subgraphs) is intentionally deferred to
+  Phase 5 alongside the CRDT sync protocol, per the roadmap’s own ordering.
 
 ---
 

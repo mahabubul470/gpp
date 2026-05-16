@@ -57,14 +57,14 @@ fn init_graphex_flag_sets_config() {
 }
 
 #[test]
-fn from_git_is_reported_unimplemented() {
+fn from_git_points_to_git_import() {
     let dir = tempfile::tempdir().unwrap();
     gpp()
         .args(["init", "--from-git", "/tmp/whatever"])
         .current_dir(dir.path())
         .assert()
         .failure()
-        .stderr(contains("not implemented yet"));
+        .stderr(contains("git-import"));
 }
 
 #[test]

@@ -4,6 +4,23 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "gpp-graphex (stub — not yet implemented; see docs/ROADMAP.md)"
+description = "gpp encrypted, versioned knowledge graph"
 
 [dependencies]
+gpp-core = { path = "../gpp-core" }
+gpp-history = { path = "../gpp-history" }
+gpp-diff = { path = "../gpp-diff" }
+rusqlite.workspace = true
+age.workspace = true
+aes-gcm.workspace = true
+zstd.workspace = true
+rmp-serde.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+blake3.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+getrandom = "0.2"
+
+[dev-dependencies]
+tempfile.workspace = true

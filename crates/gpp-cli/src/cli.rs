@@ -71,6 +71,127 @@ pub enum Command {
     GitExport(GitExportArgs),
     /// Keep a Git repository and gpp in sync (import; optionally watch)
     GitBridge(GitBridgeArgs),
+    /// Manage Graphex encryption keys
+    Keys(KeysArgs),
+    /// Query and manage the Graphex knowledge graph
+    Graphex(GraphexArgs),
+    /// Run the MCP server for AI tool integration
+    McpServer(McpServerArgs),
+}
+
+#[derive(Args)]
+pub struct KeysArgs {
+    #[command(subcommand)]
+    pub action: KeysAction,
+}
+
+#[derive(Subcommand)]
+pub enum KeysAction {
+    /// Generate a fresh master + per-tier key hierarchy
+    Generate,
+    /// Rotate tier keys and re-encrypt all nodes
+    Rotate,
+    /// Show the master recipient and which tier keys exist
+    Show,
+}
+
+#[derive(Args)]
+pub struct GraphexArgs {
+    #[command(subcommand)]
+    pub action: GraphexAction,
+}
+
+#[derive(Subcommand)]
+pub enum GraphexAction {
+    /// Show graph statistics
+    Status,
+    /// Query the graph: "<subject> -> <relation> -> <object>"
+    Query {
+        pattern: String,
+        #[arg(long, default_value_t = 1)]
+        depth: usize,
+        #[arg(long = "type")]
+        node_type: Option<String>,
+        #[arg(long)]
+        tier: Option<String>,
+        #[arg(long)]
+        since: Option<String>,
+        /// text|json
+        #[arg(long, default_value = "text")]
+        format: String,
+    },
+    /// Project context as an agent would receive it
+    Project {
+        /// Optional scope pattern
+        pattern: Option<String>,
+        /// Accessor max tier (default: agent-readable)
+        #[arg(long, default_value = "agent-readable")]
+        tier: String,
+        #[arg(long, default_value_t = 8000)]
+        budget: usize,
+    },
+    /// Add a node (human-created → Active)
+    Add {
+        #[arg(long = "type")]
+        node_type: String,
+        #[arg(long)]
+        name: String,
+        #[arg(long, short = 'd')]
+        description: String,
+        #[arg(long)]
+        tier: Option<String>,
+        /// key=value, repeatable
+        #[arg(long, short = 'p')]
+        properties: Vec<String>,
+    },
+    /// Create an edge between two nodes
+    Link {
+        from: String,
+        #[arg(long)]
+        relation: String,
+        #[arg(long)]
+        to: String,
+        #[arg(long)]
+        bidirectional: bool,
+    },
+    /// Show full node details
+    Show { node: String },
+    /// List nodes (optionally by state)
+    List {
+        /// proposed|active|deprecated|archived
+        #[arg(long)]
+        state: Option<String>,
+    },
+    /// List pending agent/auto proposals
+    Pending,
+    /// Approve a proposed node
+    Accept { node: String },
+    /// Reject (archive) a proposed node
+    Reject { node: String },
+    /// Show the access audit log
+    Audit {
+        #[arg(long)]
+        since: Option<String>,
+        #[arg(long)]
+        accessor: Option<String>,
+        #[arg(short = 'n', long, default_value_t = 50)]
+        limit: usize,
+    },
+    /// Auto-infer proposed module nodes from the HEAD changeset
+    Infer,
+}
+
+#[derive(Args)]
+pub struct McpServerArgs {
+    /// Use stdio transport (for Claude Code / Cursor integration)
+    #[arg(long)]
+    pub stdio: bool,
+    /// TCP port (not implemented; use --stdio)
+    #[arg(long)]
+    pub port: Option<u16>,
+    /// Maximum access tier exposed to connected agents
+    #[arg(long, default_value = "agent-readable")]
+    pub trust_tier: String,
 }
 
 #[derive(Args)]

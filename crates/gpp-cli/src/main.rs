@@ -7,8 +7,10 @@
 mod cli;
 mod commands;
 mod config;
+mod mcp;
 mod phase1;
 mod phase2;
+mod phase3;
 mod repo;
 
 use std::process::ExitCode;
@@ -35,6 +37,9 @@ fn main() -> ExitCode {
         Command::GitImport(a) => phase2::git_import(a, repo_override),
         Command::GitExport(a) => phase2::git_export(a, repo_override),
         Command::GitBridge(a) => phase2::git_bridge(a, repo_override),
+        Command::Keys(a) => phase3::keys(a, repo_override),
+        Command::Graphex(a) => phase3::graphex(a, repo_override, args.json),
+        Command::McpServer(a) => phase3::mcp_server(a, repo_override),
     };
 
     match result {

@@ -12,9 +12,7 @@ use crate::repo::{GPP_SUBDIRS, Repo};
 /// `gpp init` — create a new repository.
 pub fn init(args: &InitArgs, json: bool, quiet: bool) -> Result<()> {
     if args.from_git.is_some() {
-        bail!(
-            "--from-git is not implemented yet (Git import lands in Phase 2; see docs/ROADMAP.md)"
-        );
+        bail!("run `gpp init` then `gpp git-import <path>` (the Git bridge is a separate step)");
     }
     if args.template.is_some() {
         bail!("--template is not implemented yet (project templates land in a later phase)");
@@ -53,6 +51,11 @@ pub fn init(args: &InitArgs, json: bool, quiet: bool) -> Result<()> {
     // HEAD points at the default branch; the ref file itself is created when
     // the first changeset is promoted (Phase 1).
     std::fs::write(gpp_dir.join("HEAD"), "ref: refs/main\n").context("failed to write HEAD")?;
+
+    if args.graphex {
+        gpp_graphex::KeyStore::generate(&gpp_dir)
+            .context("failed to generate Graphex key store")?;
+    }
 
     if json {
         let out = serde_json::json!({
