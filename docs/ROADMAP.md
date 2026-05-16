@@ -93,30 +93,50 @@ A developer can work on code, see continuous timeline capture, promote meaningfu
 
 **Goal:** Semantic diffing works for Phase 1 languages. Git repos can be imported.
 
+**Status: ✅ Complete.**
+
 ### Deliverables
-- [ ] `gpp-diff` (enhanced):
-  - [ ] Tree-sitter integration
-  - [ ] AST parsing for Rust, TypeScript, Python, Go
-  - [ ] Declaration fingerprinting
-  - [ ] Cross-file move detection
-  - [ ] Symbol rename detection
-  - [ ] Semantic diff display format
-  - [ ] Plugin interface (`LanguageParser` trait)
-- [ ] `gpp-git-bridge`:
-  - [ ] `gpp git-import` — import Git history to gpp
-  - [ ] `gpp git-export` — export gpp history as Git
-  - [ ] Hash mapping database (SQLite)
-  - [ ] Bidirectional sync mode (`gpp git-bridge --watch`)
-- [ ] CLI updates:
-  - [ ] `gpp diff --semantic` (default for supported languages)
-  - [ ] `gpp git-import`, `gpp git-export`, `gpp git-bridge`
+- [x] `gpp-diff` (enhanced):
+  - [x] Tree-sitter integration
+  - [x] AST parsing for Rust, TypeScript, Python, Go
+  - [x] Declaration fingerprinting (full + name-blanked body fingerprint)
+  - [x] Cross-file move detection
+  - [x] Symbol rename detection
+  - [x] Semantic diff display format
+  - [x] Plugin interface (`LanguageParser` trait)
+- [x] `gpp-git-bridge`:
+  - [x] `gpp git-import` — import Git history to gpp
+  - [x] `gpp git-export` — export gpp history as Git
+  - [x] Hash mapping database (SQLite)
+  - [x] Bidirectional sync mode (`gpp git-bridge --watch`)
+- [x] CLI updates:
+  - [x] `gpp diff --semantic` (default for supported languages)
+  - [x] `gpp git-import`, `gpp git-export`, `gpp git-bridge`
 
 ### Milestone
 Developers can import existing Git repos and immediately see better diffs. **This is the "drop-in improvement over Git" milestone.**
 
 ### Dependencies (new)
-- `tree-sitter` + language grammars
+- `tree-sitter` + `tree-sitter-{rust,python,typescript,go}` grammars
+- `streaming-iterator` — tree-sitter 0.24 query iteration
 - `git2` (libgit2 bindings) — for Git bridge
+
+### Implementation notes / deviations
+- Declaration extraction is query-driven per language; adding a language is a
+  grammar + a declaration query. Nested items (e.g. impl methods) are captured
+  too. Fingerprints normalize trailing whitespace and blank edges, so pure
+  reformatting is reported as no semantic change.
+- Rename/move detection is fingerprint-based: two declarations with an
+  identical name-blanked body are treated as the same symbol. Trivial bodies
+  (e.g. two empty functions) can therefore look like a rename — this is the
+  expected similarity-heuristic trade-off, mirrored from Git's own heuristics.
+- `git-import`/`git-export` traverse the **first-parent** chain; the hash map
+  keys commits by their oid in the *bridged* repo. Import-from-A then
+  export-to-a-different-repo-B reuses A's oids (correct for the single-remote
+  bridge model; cross-repo migration would need a fresh map).
+- `git-bridge --watch` is poll-based (HEAD-oid change detection on an
+  interval); `--export` opts into pushing gpp changes back each cycle.
+  Continuous operation-level bidirectional CRDT sync remains Phase 5.
 
 ---
 

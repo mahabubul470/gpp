@@ -4,6 +4,15 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "gpp-git-bridge (stub — not yet implemented; see docs/ROADMAP.md)"
+description = "gpp ↔ Git import/export bridge"
 
 [dependencies]
+gpp-core = { path = "../gpp-core" }
+gpp-history = { path = "../gpp-history" }
+git2.workspace = true
+rusqlite.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

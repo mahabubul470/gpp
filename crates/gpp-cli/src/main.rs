@@ -8,6 +8,7 @@ mod cli;
 mod commands;
 mod config;
 mod phase1;
+mod phase2;
 mod repo;
 
 use std::process::ExitCode;
@@ -31,6 +32,9 @@ fn main() -> ExitCode {
         Command::Log(a) => phase1::log(a, repo_override),
         Command::Diff(a) => phase1::diff(a, repo_override),
         Command::Branch(a) => phase1::branch(a, repo_override),
+        Command::GitImport(a) => phase2::git_import(a, repo_override),
+        Command::GitExport(a) => phase2::git_export(a, repo_override),
+        Command::GitBridge(a) => phase2::git_bridge(a, repo_override),
     };
 
     match result {

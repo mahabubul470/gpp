@@ -509,9 +509,6 @@ pub fn log(args: &LogArgs, repo_override: Option<&Path>) -> Result<()> {
 // ---------------------------------------------------------------------------
 
 pub fn diff(args: &DiffArgs, repo_override: Option<&Path>) -> Result<()> {
-    if args.semantic {
-        eprintln!("note: semantic diff arrives in Phase 2 — showing line-based diff");
-    }
     let repo = discover(repo_override)?;
     let refs = refstore(&repo);
     let store = ObjectStore::open(&repo.gpp_dir());
@@ -558,8 +555,16 @@ pub fn diff(args: &DiffArgs, repo_override: Option<&Path>) -> Result<()> {
     paths.sort();
     paths.dedup();
 
+    // Semantic is the default; --line forces line-based; --stat/--files stay
+    // line-based (they are inherently line counts / name lists).
+    let semantic_mode = !args.line && !args.stat && !args.files;
+
     let mut total = gpp_diff::FileStat::default();
+    let mut changed_files = 0usize;
+    let mut line_blocks: Vec<String> = Vec::new();
+    let mut sem_diffs: Vec<gpp_diff::FileSemanticDiff> = Vec::new();
     let mut any = false;
+
     for path in paths {
         let o = old.get(path);
         let n = new.get(path);
@@ -567,6 +572,7 @@ pub fn diff(args: &DiffArgs, repo_override: Option<&Path>) -> Result<()> {
             continue;
         }
         any = true;
+        changed_files += 1;
         let ob = match o {
             Some(h) => store.read::<Blob>(h)?.content,
             None => Vec::new(),
@@ -581,26 +587,68 @@ pub fn diff(args: &DiffArgs, repo_override: Option<&Path>) -> Result<()> {
 
         if args.files {
             println!("{path}");
-        } else if args.stat {
+            continue;
+        }
+        if args.stat {
             println!("  {path:<40} +{:<5} -{}", st.added, st.removed);
-        } else if let Some(d) = gpp_diff::unified(path, &ob, &nb) {
-            print!("{d}");
+            continue;
+        }
+
+        let semantic_capable = semantic_mode && gpp_diff::detect_language(path).is_some();
+        if semantic_capable {
+            match gpp_diff::semantic(path, &ob, &nb) {
+                Ok(d) => {
+                    sem_diffs.push(d);
+                    continue;
+                }
+                // Parse failure (e.g. syntax error mid-edit): fall back.
+                Err(_) => {
+                    if args.semantic {
+                        eprintln!("note: {path}: semantic parse failed, using line diff");
+                    }
+                }
+            }
+        }
+        if let Some(d) = gpp_diff::unified(path, &ob, &nb) {
+            line_blocks.push(d);
+        }
+    }
+
+    if args.files {
+        if !any {
+            println!("(no changes)");
+        }
+        return Ok(());
+    }
+    if args.stat {
+        if !any {
+            println!("(no changes)");
+        } else {
+            println!(
+                "  {changed_files} file(s) changed, +{} -{}",
+                total.added, total.removed
+            );
+        }
+        return Ok(());
+    }
+
+    for b in &line_blocks {
+        print!("{b}");
+    }
+    let moves = gpp_diff::detect_moves(&mut sem_diffs);
+    let mut sem_printed = false;
+    for d in &sem_diffs {
+        let r = gpp_diff::render(d, &moves);
+        if !r.is_empty() {
+            print!("{r}");
+            sem_printed = true;
         }
     }
 
     if !any {
         println!("(no changes)");
-    } else if args.stat {
-        println!(
-            "  {} file(s) changed, +{} -{}",
-            // count differing files again is cheap enough; reuse `any`
-            old.keys()
-                .chain(new.keys())
-                .collect::<std::collections::HashSet<_>>()
-                .len(),
-            total.added,
-            total.removed
-        );
+    } else if line_blocks.is_empty() && !sem_printed {
+        println!("(no semantic changes — formatting/comments only; use --line for raw diff)");
     }
     Ok(())
 }

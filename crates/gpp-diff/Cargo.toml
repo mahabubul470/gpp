@@ -4,7 +4,15 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "gpp diff engine (line-based; semantic diff lands in Phase 2)"
+description = "gpp diff engine (line-based + tree-sitter semantic diff)"
 
 [dependencies]
 similar.workspace = true
+thiserror.workspace = true
+blake3.workspace = true
+tree-sitter.workspace = true
+tree-sitter-rust = "0.23"
+tree-sitter-python = "0.23"
+tree-sitter-go = "0.23"
+tree-sitter-typescript = "0.23"
+streaming-iterator = "0.1"

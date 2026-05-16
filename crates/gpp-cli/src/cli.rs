@@ -61,10 +61,43 @@ pub enum Command {
     Promote(PromoteArgs),
     /// View changeset history
     Log(LogArgs),
-    /// Show changes (line-based; semantic diff arrives in Phase 2)
+    /// Show changes (semantic for supported languages, else line-based)
     Diff(DiffArgs),
     /// Manage branches and agent exploration branches
     Branch(BranchArgs),
+    /// Import a Git repository's history into gpp
+    GitImport(GitImportArgs),
+    /// Export gpp history into a Git repository
+    GitExport(GitExportArgs),
+    /// Keep a Git repository and gpp in sync (import; optionally watch)
+    GitBridge(GitBridgeArgs),
+}
+
+#[derive(Args)]
+pub struct GitImportArgs {
+    /// Path to the Git repository to import from
+    pub path: PathBuf,
+}
+
+#[derive(Args)]
+pub struct GitExportArgs {
+    /// Path to the Git repository to export into (created if absent)
+    pub path: PathBuf,
+}
+
+#[derive(Args)]
+pub struct GitBridgeArgs {
+    /// Path to the Git repository to bridge with
+    pub path: PathBuf,
+    /// Also export gpp changes back to Git each cycle
+    #[arg(long)]
+    pub export: bool,
+    /// Keep running, re-importing whenever Git HEAD moves
+    #[arg(long)]
+    pub watch: bool,
+    /// Poll interval for --watch, in seconds
+    #[arg(long, default_value_t = 2)]
+    pub interval: u64,
 }
 
 #[derive(Args)]
@@ -175,10 +208,10 @@ pub struct LogArgs {
 pub struct DiffArgs {
     /// Target: empty (working vs HEAD), <changeset>, or <cs1>..<cs2>
     pub target: Option<String>,
-    /// Force line-based diff (the only mode in Phase 1)
+    /// Force line-based diff (default for unsupported languages)
     #[arg(long)]
     pub line: bool,
-    /// Show semantic operations (Phase 2: falls back to line)
+    /// Force semantic diff even where it would not be the default
     #[arg(long)]
     pub semantic: bool,
     /// Show only statistics
