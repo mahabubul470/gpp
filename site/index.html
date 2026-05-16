@@ -647,6 +647,93 @@
     border-left: 1px solid var(--border);
   }
 
+  /* ─── Status pills on arch layers ─── */
+  .arch-status {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    margin-top: 12px;
+    margin-left: 8px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .arch-status.shipped { background: rgba(34, 245, 160, 0.12); color: var(--green); }
+  .arch-status.partial { background: rgba(245, 179, 66, 0.12); color: var(--amber); }
+  .arch-status.planned { background: rgba(74, 85, 104, 0.18); color: var(--text-secondary); }
+
+  /* ─── Roadmap / status section ─── */
+  .phase-list { display: flex; flex-direction: column; gap: 12px; }
+  .phase-row {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 28px;
+    transition: border-color 0.2s;
+  }
+  .phase-row:hover { border-color: var(--border-light); }
+  .phase-row.done { border-color: rgba(34, 245, 160, 0.25); }
+  .phase-state {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 6px 12px;
+    border-radius: 6px;
+    white-space: nowrap;
+    letter-spacing: 0.5px;
+  }
+  .phase-state.done { background: rgba(34, 245, 160, 0.12); color: var(--green); }
+  .phase-state.next { background: rgba(56, 217, 245, 0.12); color: var(--cyan); }
+  .phase-state.todo { background: rgba(74, 85, 104, 0.18); color: var(--text-secondary); }
+  .phase-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+    min-width: 220px;
+  }
+  .phase-detail { font-size: 14px; color: var(--text-secondary); line-height: 1.5; }
+
+  /* ─── Under the hood ─── */
+  .uh-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+  }
+  .uh-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+  }
+  .uh-card h3 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    color: var(--green);
+    margin-bottom: 14px;
+    letter-spacing: 0.5px;
+  }
+  .uh-card ul { list-style: none; }
+  .uh-card li {
+    font-size: 13.5px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .uh-card li:last-child { border-bottom: none; }
+  .uh-card li code {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--cyan);
+    font-size: 12.5px;
+  }
+
+  a.btn-primary, a.btn-secondary, a.nav-cta { text-decoration: none; display: inline-block; }
+
   /* ─── Animations ─── */
   @keyframes fadeInUp {
     from { opacity: 0; transform: translateY(24px); }
@@ -676,14 +763,15 @@
 
 <!-- Nav -->
 <nav>
-  <a href="#" class="nav-logo">gpp <span>// git++</span></a>
+  <a href="https://github.com/mahabubul470/gpp" class="nav-logo">gpp <span>// git++</span></a>
   <div class="nav-links">
+    <a href="#status">Status</a>
     <a href="#architecture">Architecture</a>
-    <a href="#features">Features</a>
-    <a href="#compare">Git vs gpp</a>
+    <a href="#internals">Internals</a>
     <a href="#cli">CLI</a>
+    <a href="https://github.com/mahabubul470/gpp/blob/main/docs/ROADMAP.md">Roadmap</a>
   </div>
-  <button class="nav-cta">Get Early Access</button>
+  <a href="https://github.com/mahabubul470/gpp" class="nav-cta">★ GitHub</a>
 </nav>
 
 <!-- Hero -->
@@ -691,12 +779,14 @@
   <div class="hero-grid-bg"></div>
   <div class="hero-glow"></div>
 
-  <div class="hero-badge">⚡ Version Control, Reinvented for AI</div>
+  <div class="hero-badge">Rust · Content-addressed · Open source (MIT)</div>
 
   <h1>git<span class="plus">++</span></h1>
 
   <p class="hero-tagline">
-    The <strong>AI-native version control</strong> platform with continuous capture, encrypted knowledge graphs, and agent-aware collaboration.
+    An <strong>AI-native version control system</strong> in Rust. Continuous
+    capture instead of manual commits, content-addressed storage, and
+    changesets promoted from a live timeline. <strong>Phases 0 &amp; 1 shipped.</strong>
   </p>
 
   <div class="hero-terminal">
@@ -704,71 +794,105 @@
       <div class="terminal-dot r"></div>
       <div class="terminal-dot y"></div>
       <div class="terminal-dot g"></div>
-      <span class="terminal-title">~/webapp-pgw</span>
+      <span class="terminal-title">~/project — gpp 0.1.0</span>
     </div>
     <div class="terminal-body">
       <span class="prompt">$</span> <span class="cmd">gpp init</span> <span class="flag">--graphex</span><br>
-      <span class="output">✓ Initialized gpp repo with Graphex knowledge layer</span><br>
-      <span class="prompt">$</span> <span class="cmd">gpp timeline</span><br>
-      <span class="output">✓ Continuous capture active — 847 states recorded</span><br>
-      <span class="prompt">$</span> <span class="cmd">gpp graphex query</span> <span class="flag">"orders → *"</span><br>
-      <span class="output">✓ 12 nodes found — 3 services, 4 policies, 5 schemas</span><br>
-      <span class="prompt">$</span> <span class="cmd">gpp trust</span> <span class="flag">--agent claude-code</span><br>
-      <span class="output">✓ Agent score: 94.2 — auto-merge eligible on low-risk</span>
+      <span class="output">Initialized empty gpp repository in .gpp/</span><br>
+      <span class="prompt">$</span> <span class="cmd">gpp timeline</span> <span class="comment"># continuous capture, no commit needed</span><br>
+      <span class="output">#3  4s ago  human:dev1  2 files changed via cli</span><br>
+      <span class="prompt">$</span> <span class="cmd">gpp promote</span> <span class="flag">-m</span> <span class="flag">"add retry"</span> <span class="flag">--intent feature</span><br>
+      <span class="output">Promoted 3 timeline entries → cs:k4f9b2qa on main</span><br>
+      <span class="prompt">$</span> <span class="cmd">gpp log</span> <span class="flag">--oneline</span><br>
+      <span class="output">cs:k4f9b2qa  add retry</span>
     </div>
   </div>
 
   <div class="hero-actions">
-    <button class="btn-primary">Star on GitHub →</button>
-    <button class="btn-secondary">Read the Spec</button>
+    <a href="https://github.com/mahabubul470/gpp" class="btn-primary">★ Star on GitHub</a>
+    <a href="#build" class="btn-secondary">Build from source</a>
   </div>
 </div>
 
 <!-- Stats -->
 <div class="stats-bar">
   <div class="stat">
-    <div class="stat-num">12</div>
-    <div class="stat-label">Core Layers</div>
+    <div class="stat-num">Rust</div>
+    <div class="stat-label">Single static binary</div>
   </div>
   <div class="stat">
-    <div class="stat-num">0</div>
-    <div class="stat-label">Context Leaked</div>
+    <div class="stat-num">21</div>
+    <div class="stat-label">Workspace crates</div>
   </div>
   <div class="stat">
-    <div class="stat-num">∞</div>
-    <div class="stat-label">Undo History</div>
+    <div class="stat-num">BLAKE3</div>
+    <div class="stat-label">Content addressing</div>
   </div>
   <div class="stat">
-    <div class="stat-num">E2E</div>
-    <div class="stat-label">Encrypted</div>
+    <div class="stat-num">MIT</div>
+    <div class="stat-label">Open source</div>
   </div>
 </div>
+
+<!-- Status / Roadmap -->
+<section id="status">
+  <div class="section-label">// Project status</div>
+  <div class="section-title">Shipped, not vaporware.</div>
+  <div class="section-desc">
+    gpp is built in phases, each a usable increment. The vision below is the
+    full 12-layer architecture; here is exactly what runs today. Full detail in
+    <a href="https://github.com/mahabubul470/gpp/blob/main/docs/ROADMAP.md" style="color:var(--green)">docs/ROADMAP.md</a>.
+  </div>
+
+  <div class="phase-list">
+    <div class="phase-row done">
+      <span class="phase-state done">✓ DONE</span>
+      <span class="phase-name">Phase 0 — Foundation</span>
+      <span class="phase-detail">Cargo workspace, <code>gpp-core</code> content-addressed object store (BLAKE3 + zstd), <code>gpp init/status/config</code>, CI.</span>
+    </div>
+    <div class="phase-row done">
+      <span class="phase-state done">✓ DONE</span>
+      <span class="phase-name">Phase 1 — Timeline + History</span>
+      <span class="phase-detail">SQLite WAL timeline, working-tree capture, <code>.gppignore</code>, promote → changeset DAG, branches, line diff. <code>timeline/promote/log/diff/branch</code>.</span>
+    </div>
+    <div class="phase-row">
+      <span class="phase-state next">◐ IN PROGRESS</span>
+      <span class="phase-name">Phase 2 — Semantic diff + Git bridge</span>
+      <span class="phase-detail">Tree-sitter structural diffs (Rust/Python/TS/Go) and Git import/export compatibility.</span>
+    </div>
+    <div class="phase-row">
+      <span class="phase-state todo">○ PLANNED</span>
+      <span class="phase-name">Phase 3+ — Graphex, Trust, Sync</span>
+      <span class="phase-detail">Encrypted knowledge graph, agent reputation/RBAC, CRDT P2P replication, cost &amp; policy engines.</span>
+    </div>
+  </div>
+</section>
 
 <!-- Architecture -->
 <section id="architecture" class="arch-container">
   <div class="section-label">// Architecture</div>
   <div class="section-title">12 layers. One platform.</div>
-  <div class="section-desc">Every layer is purpose-built for a world where AI agents are first-class contributors, not afterthoughts.</div>
+  <div class="section-desc">The full architecture for a world where AI agents are first-class contributors. Pills show real status — <span style="color:var(--green)">shipped</span>, <span style="color:var(--amber)">in progress</span>, untagged layers are on the roadmap.</div>
 
   <div class="arch-grid">
     <!-- Row 1: Core -->
     <div class="arch-layer">
       <div class="arch-icon green">01</div>
       <div class="arch-name">Storage</div>
-      <div class="arch-desc">Content-addressed, encrypted blobs. Richer object types: semantic diffs, intent records, agent metadata.</div>
-      <span class="arch-tag core">Core</span>
+      <div class="arch-desc">Content-addressed blobs (BLAKE3 + zstd), GPP wire frame, atomic idempotent writes, hash-verified reads. Blob/Tree/Changeset/Intent objects.</div>
+      <span class="arch-tag core">Core</span><span class="arch-status shipped">Shipped</span>
     </div>
     <div class="arch-layer">
       <div class="arch-icon green">02</div>
       <div class="arch-name">Timeline</div>
-      <div class="arch-desc">Continuous, append-only capture of every file change. Your always-on safety net.</div>
-      <span class="arch-tag core">Core</span>
+      <div class="arch-desc">Continuous append-only capture into SQLite (WAL). Debounced fs-watch, <code style="color:var(--cyan);font-family:'JetBrains Mono'">.gppignore</code>, retention pruning.</div>
+      <span class="arch-tag core">Core</span><span class="arch-status shipped">Shipped</span>
     </div>
     <div class="arch-layer">
       <div class="arch-icon green">03</div>
       <div class="arch-name">History</div>
-      <div class="arch-desc">Curated changesets with conversation threads. Promoted from timeline by humans or AI.</div>
-      <span class="arch-tag core">Core</span>
+      <div class="arch-desc">Curated changesets promoted from the timeline. Changeset DAG, Intent objects, branch refs &amp; HEAD.</div>
+      <span class="arch-tag core">Core</span><span class="arch-status shipped">Shipped</span>
     </div>
 
     <!-- Row 2: Intelligence -->
@@ -809,8 +933,8 @@
     <div class="arch-layer">
       <div class="arch-icon purple">09</div>
       <div class="arch-name">Semantic Diff</div>
-      <div class="arch-desc">Structure-aware diffing. Renames, moves, and refactors shown as single operations.</div>
-      <span class="arch-tag infra">Infra</span>
+      <div class="arch-desc">Line-based unified diff shipped; tree-sitter structural diff (renames/moves as one op) in progress.</div>
+      <span class="arch-tag infra">Infra</span><span class="arch-status partial">In progress</span>
     </div>
     <div class="arch-layer">
       <div class="arch-icon purple">10</div>
@@ -913,56 +1037,120 @@
   </div>
 </section>
 
+<!-- Internals -->
+<section id="internals">
+  <div class="section-label">// Under the hood</div>
+  <div class="section-title">How it actually works.</div>
+  <div class="section-desc">No magic. A Cargo workspace of focused crates, content-addressed storage, an embedded SQLite timeline, and changesets that form a DAG — all pure Rust, single binary, no runtime services.</div>
+
+  <div class="uh-grid">
+    <div class="uh-card">
+      <h3>Object store · gpp-core</h3>
+      <ul>
+        <li>Content addressing with <code>BLAKE3</code>, base32 ids (52 chars, short = 8)</li>
+        <li><code>Blob</code> / <code>Tree</code> / <code>Changeset</code> / <code>Intent</code> objects</li>
+        <li>Framed <code>GPP\0</code> wire format: zstd payload + 4-byte checksum</li>
+        <li>Atomic temp-then-rename writes, idempotent, hash-verified reads</li>
+      </ul>
+    </div>
+    <div class="uh-card">
+      <h3>Timeline · gpp-timeline</h3>
+      <ul>
+        <li>SQLite in <code>WAL</code> mode, schema per <code>docs/DATA_MODEL.md</code></li>
+        <li>Scanner: mtime/size fast-path, blobs written to the store</li>
+        <li><code>.gppignore</code> + configured ignore via <code>globset</code></li>
+        <li>Debounced <code>notify</code> watcher; configurable retention prune</li>
+      </ul>
+    </div>
+    <div class="uh-card">
+      <h3>History · gpp-history</h3>
+      <ul>
+        <li><code>promote</code> folds unpromoted entries → one <code>Changeset</code></li>
+        <li>Snapshot <code>Tree</code> + <code>Intent</code> (type, task ref, message)</li>
+        <li>Parent-linked changeset DAG; file-based branch refs + <code>HEAD</code></li>
+        <li>MessagePack bodies, BLAKE3-addressed, walked for <code>gpp log</code></li>
+      </ul>
+    </div>
+    <div class="uh-card">
+      <h3>Stack &amp; conventions</h3>
+      <ul>
+        <li>Rust 2024 · <code>thiserror</code>/<code>anyhow</code> · <code>tracing</code> · <code>clap</code></li>
+        <li>UTC i64 µs timestamps; costs in integer micro-dollars</li>
+        <li>No <code>unwrap()</code> in libs; <code>#![forbid(unsafe_code)]</code></li>
+        <li>CI gates: <code>cargo fmt</code> · <code>clippy -D warnings</code> · <code>test</code></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- Build from source -->
+<section id="build">
+  <div class="section-label">// Quickstart</div>
+  <div class="section-title">Build from source.</div>
+  <div class="section-desc">Not on crates.io yet — it's a pre-1.0 project. Clone and build the workspace; you get a single <code style="color:var(--cyan);font-family:'JetBrains Mono'">gpp</code> binary.</div>
+
+  <div class="cli-block" style="max-width:720px">
+    <div class="cli-label">terminal</div>
+    <div class="cli-code">
+      <span class="p">$</span> <span class="c">git clone https://github.com/mahabubul470/gpp</span><br>
+      <span class="p">$</span> <span class="c">cd gpp &amp;&amp; cargo build --release</span><br>
+      <span class="p">$</span> <span class="c">./target/release/gpp init</span><br>
+      <span class="o">&nbsp; Initialized empty gpp repository in .gpp/</span><br>
+      <span class="p">$</span> <span class="c">./target/release/gpp timeline</span> <span class="d"># start capturing</span>
+    </div>
+  </div>
+</section>
+
 <!-- CLI Showcase -->
 <section id="cli">
   <div class="section-label">// Interface</div>
-  <div class="section-title">Clean CLI. Powerful SDK.</div>
-  <div class="section-desc">Designed for humans to type and agents to call programmatically. Every command fits the AI-native workflow.</div>
+  <div class="section-title">Real commands, today.</div>
+  <div class="section-desc">Every command below works in the current build (<code style="color:var(--cyan);font-family:'JetBrains Mono'">gpp 0.1.0</code>). <code style="color:var(--cyan);font-family:'JetBrains Mono'">--json</code> on most for agent/script use. The last block is the roadmap.</div>
 
   <div class="cli-grid">
     <div class="cli-block">
-      <div class="cli-label">Core Workflow</div>
+      <div class="cli-label">Init &amp; capture</div>
       <div class="cli-code">
         <span class="p">$</span> <span class="c">gpp init</span> <span class="f">--graphex</span><br>
-        <span class="p">$</span> <span class="c">gpp timeline</span><br>
-        <span class="o">&nbsp; ┌ 14:03:22 — 12 files changed (agent:claude)</span><br>
-        <span class="o">&nbsp; ├ 14:01:47 — 3 files changed (human:dev1)</span><br>
-        <span class="o">&nbsp; └ 13:58:11 — 1 file changed (human:dev1)</span><br>
-        <span class="p">$</span> <span class="c">gpp promote</span> <span class="f">--from 14:01</span><br>
-        <span class="o">&nbsp; ✓ Changeset cs:a3f9b2 created</span>
+        <span class="o">&nbsp; Initialized empty gpp repository in .gpp/</span><br>
+        <span class="p">$</span> <span class="c">gpp timeline</span> <span class="f">-n 3</span> <span class="d"># newest first</span><br>
+        <span class="o">&nbsp; #3  4s ago   human:dev1  2 files changed</span><br>
+        <span class="o">&nbsp; #2  3m ago   human:dev1  1 file changed</span><br>
+        <span class="p">$</span> <span class="c">gpp timeline watch</span> <span class="d"># debounced live stream</span>
       </div>
     </div>
     <div class="cli-block">
-      <div class="cli-label">Knowledge Graph</div>
+      <div class="cli-label">Promote &amp; history</div>
       <div class="cli-code">
-        <span class="p">$</span> <span class="c">gpp graphex query</span> <span class="f">"auth → depends-on → *"</span><br>
-        <span class="o">&nbsp; auth → user-service (gRPC)</span><br>
-        <span class="o">&nbsp; auth → token-store (Redis)</span><br>
-        <span class="o">&nbsp; auth → auth-module (internal API)</span><br>
-        <span class="p">$</span> <span class="c">gpp graphex add</span> <span class="f">--node "rate-limiter"</span><br>
-        <span class="o">&nbsp; ✓ Node added — connect with `gpp graphex link`</span>
+        <span class="p">$</span> <span class="c">gpp promote</span> <span class="f">-m</span> <span class="f">"add retry"</span> <span class="f">--intent feature</span><br>
+        <span class="o">&nbsp; Promoted 3 timeline entries → cs:k4f9b2qa on main</span><br>
+        <span class="p">$</span> <span class="c">gpp log</span> <span class="f">--oneline</span><br>
+        <span class="o">&nbsp; cs:k4f9b2qa  add retry</span><br>
+        <span class="p">$</span> <span class="c">gpp status</span><br>
+        <span class="o">&nbsp; On branch: main (cs:k4f9b2qa) · 1 unpromoted</span>
       </div>
     </div>
     <div class="cli-block">
-      <div class="cli-label">Agent Trust</div>
+      <div class="cli-label">Diff &amp; branches</div>
       <div class="cli-code">
-        <span class="p">$</span> <span class="c">gpp trust show</span><br>
-        <span class="o">&nbsp; agent:claude-code &nbsp; <span class="a">94.2</span> &nbsp; auto-merge: low-risk</span><br>
-        <span class="o">&nbsp; agent:copilot &nbsp;&nbsp;&nbsp;&nbsp; <span class="a">81.7</span> &nbsp; review: required</span><br>
-        <span class="o">&nbsp; agent:codex &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="r">62.3</span> &nbsp; sandboxed</span><br>
-        <span class="p">$</span> <span class="c">gpp trust policy</span> <span class="f">--min-score 85</span><br>
-        <span class="o">&nbsp; ✓ Auto-merge threshold set to 85</span>
+        <span class="p">$</span> <span class="c">gpp diff</span> <span class="d"># working tree vs HEAD</span><br>
+        <span class="o">&nbsp; --- a/src/lib.rs</span><br>
+        <span class="o">&nbsp; +++ b/src/lib.rs</span><br>
+        <span class="r">&nbsp; -    let n = 1;</span><br>
+        <span class="a">&nbsp; +    let n = retries;</span><br>
+        <span class="p">$</span> <span class="c">gpp branch</span> <span class="c">create</span> <span class="f">feature/x</span><br>
+        <span class="o">&nbsp; created branch feature/x at cs:k4f9b2qa</span>
       </div>
     </div>
     <div class="cli-block">
-      <div class="cli-label">Compliance & Cost</div>
+      <div class="cli-label">Roadmap (not yet built)</div>
       <div class="cli-code">
-        <span class="p">$</span> <span class="c">gpp cost</span> <span class="f">--this-week</span><br>
-        <span class="o">&nbsp; Total: $47.20 across 142 changesets</span><br>
-        <span class="o">&nbsp; orders-service: <span class="r">$18.40</span> (39%)</span><br>
-        <span class="o">&nbsp; auth-service: $6.10 (13%)</span><br>
-        <span class="p">$</span> <span class="c">gpp audit</span> <span class="f">--module orders --export pdf</span><br>
-        <span class="o">&nbsp; ✓ Compliance report → audit-2026-05-16.pdf</span>
+        <span class="d">$ gpp diff --semantic &nbsp;&nbsp;&nbsp; # Phase 2</span><br>
+        <span class="d">$ gpp git push &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; # Phase 2 (Git bridge)</span><br>
+        <span class="d">$ gpp graphex query "..." # Phase 3+</span><br>
+        <span class="d">$ gpp trust show &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; # Phase 3+</span><br>
+        <span class="d">$ gpp cost --this-week &nbsp; # Phase 3+</span><br>
+        <span class="o">&nbsp; these are rejected today with a clear message</span>
       </div>
     </div>
   </div>
@@ -972,10 +1160,14 @@
 <div class="cta-section">
   <div class="cta-glow"></div>
   <h2>Version control<br>for the <span style="color: var(--green)">agent age</span>.</h2>
-  <p>Built in Rust. Open source. Coming soon.</p>
-  <div class="cta-install" onclick="navigator.clipboard.writeText('cargo install gpp')">
-    <span class="dollar">$</span> cargo install gpp
+  <p>Built in Rust. MIT-licensed. Phases 0 &amp; 1 shipped — clone it and try it.</p>
+  <div class="cta-install" onclick="navigator.clipboard.writeText('git clone https://github.com/mahabubul470/gpp')">
+    <span class="dollar">$</span> git clone https://github.com/mahabubul470/gpp
     <span class="copy-hint">click to copy</span>
+  </div>
+  <div style="margin-top:28px">
+    <a href="https://github.com/mahabubul470/gpp" class="btn-primary">★ Star on GitHub</a>
+    <a href="https://github.com/mahabubul470/gpp/blob/main/docs/ROADMAP.md" class="btn-secondary">Read the Roadmap</a>
   </div>
 </div>
 
@@ -983,13 +1175,13 @@
 <footer>
   <div class="footer-logo">gpp <span>// git++</span></div>
   <div class="footer-links">
-    <a href="#">GitHub</a>
-    <a href="#">Docs</a>
-    <a href="#">Spec</a>
-    <a href="#">Discord</a>
-    <a href="#">Blog</a>
+    <a href="https://github.com/mahabubul470/gpp">GitHub</a>
+    <a href="https://github.com/mahabubul470/gpp/tree/main/docs">Docs</a>
+    <a href="https://github.com/mahabubul470/gpp/blob/main/docs/ARCHITECTURE.md">Architecture</a>
+    <a href="https://github.com/mahabubul470/gpp/blob/main/docs/ROADMAP.md">Roadmap</a>
+    <a href="https://github.com/mahabubul470/gpp/issues">Issues</a>
   </div>
-  <div class="footer-copy">© 2026 gpp contributors — MIT License</div>
+  <div class="footer-copy">© 2026 gpp contributors — MIT License · <a href="https://github.com/mahabubul470/gpp" style="color:var(--text-secondary)">github.com/mahabubul470/gpp</a></div>
 </footer>
 
 </body>
