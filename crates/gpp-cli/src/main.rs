@@ -7,6 +7,7 @@
 mod cli;
 mod commands;
 mod config;
+mod phase1;
 mod repo;
 
 use std::process::ExitCode;
@@ -25,6 +26,11 @@ fn main() -> ExitCode {
         Command::Init(a) => commands::init(a, args.json, args.quiet),
         Command::Status(a) => commands::status(a, repo_override, args.json),
         Command::Config(a) => commands::config(a, repo_override, args.quiet),
+        Command::Timeline(a) => phase1::timeline(a, repo_override, args.json),
+        Command::Promote(a) => phase1::promote(a, repo_override),
+        Command::Log(a) => phase1::log(a, repo_override),
+        Command::Diff(a) => phase1::diff(a, repo_override),
+        Command::Branch(a) => phase1::branch(a, repo_override),
     };
 
     match result {

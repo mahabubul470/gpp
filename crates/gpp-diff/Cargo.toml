@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "gpp-diff (stub — not yet implemented; see docs/ROADMAP.md)"
+description = "gpp diff engine (line-based; semantic diff lands in Phase 2)"
 
 [dependencies]
+similar.workspace = true

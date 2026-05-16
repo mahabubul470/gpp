@@ -9,16 +9,24 @@ full specification (architecture, data model, CLI, protocols, roadmap).
 
 ## Status
 
-**Phase 0 (Foundation)** — in progress. See [`docs/ROADMAP.md`](docs/ROADMAP.md).
+**Phase 1 (Timeline + Basic History)** — complete. See [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 Implemented:
 
-- `gpp-core` — content-addressed object store (BLAKE3 + zstd), `Blob` / `Tree`
-  objects, atomic idempotent writes, hash-verified reads.
-- `gpp-cli` — the `gpp` binary with `init`, `status`, and `config`.
+- `gpp-core` — content-addressed object store (BLAKE3 + zstd); `Blob`, `Tree`,
+  `Changeset`, `Intent` object types; atomic idempotent writes; hash-verified reads.
+- `gpp-timeline` — SQLite (WAL) timeline DB, working-tree scanner, `.gppignore`
+  + configured ignore matching, debounced `notify` watcher, retention pruning.
+- `gpp-history` — `Changeset`/`Intent`/`Author` objects, branch `RefStore`,
+  promote (timeline → changeset), changeset-DAG walk.
+- `gpp-diff` — line-based unified diff + stats (semantic diff is Phase 2).
+- `gpp-cli` — the `gpp` binary: `init`, `status`, `config`, `timeline`
+  (list/watch/search/prune/export), `promote`, `log`, `diff`, `branch`.
 - CI: `cargo fmt`, `cargo clippy -D warnings`, `cargo test`.
 
-All other crates in the workspace are compiling stubs filled in by later phases.
+Deferred to later phases (rejected with a clear message if invoked): semantic
+diff, `promote --interactive/--auto-summarize/--sign`, Git bridge, AI features.
+The remaining workspace crates are compiling stubs filled in by later phases.
 
 ## Build
 
@@ -26,8 +34,13 @@ All other crates in the workspace are compiling stubs filled in by later phases.
 cargo build --release
 cargo test --workspace
 
-# Try it
+# Try it (Phase 1 solo-dev flow)
 cargo run --bin gpp -- init --graphex
+echo "fn main() {}" > main.rs
+cargo run --bin gpp -- timeline                 # see continuous capture
+cargo run --bin gpp -- promote -m "first cut" --intent feature
+cargo run --bin gpp -- log --oneline
+cargo run --bin gpp -- diff
+cargo run --bin gpp -- branch create feature/x
 cargo run --bin gpp -- status
-cargo run --bin gpp -- config get trust.auto_merge_min
 ```

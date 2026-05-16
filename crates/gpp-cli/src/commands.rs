@@ -96,16 +96,22 @@ pub fn status(args: &StatusArgs, repo_override: Option<&Path>, json: bool) -> Re
         .and_then(toml::Value::as_bool)
         .unwrap_or(true);
 
+    let (entries, unpromoted, tip) = crate::phase1::summarize(&repo)?;
+    let tip_str = tip
+        .clone()
+        .map(|s| format!("cs:{s}"))
+        .unwrap_or_else(|| "(no changesets yet)".into());
+
     if json {
         let out = serde_json::json!({
             "branch": branch,
+            "head": tip,
             "objects": objects,
             "timeline": {
                 "enabled": timeline_enabled,
-                "entries": 0,
-                "status": "not-implemented (Phase 1)",
+                "entries": entries,
             },
-            "unpromoted_changes": 0,
+            "unpromoted_changes": unpromoted,
             "active_agents": [],
             "policy_violations": 0,
             "session_cost_microdollars": 0,
@@ -115,21 +121,21 @@ pub fn status(args: &StatusArgs, repo_override: Option<&Path>, json: bool) -> Re
     }
 
     if args.short {
-        println!("{branch} · {objects} objects · 0 unpromoted");
+        println!("{branch} · {objects} objects · {unpromoted} unpromoted");
         return Ok(());
     }
 
-    println!("On branch: {branch}");
+    println!("On branch: {branch} ({tip_str})");
     println!("Objects: {objects} stored");
     println!(
-        "Timeline: {} (0 entries — capture engine lands in Phase 1)",
+        "Timeline: {} ({entries} entries)",
         if timeline_enabled {
             "enabled"
         } else {
             "disabled"
         }
     );
-    println!("Unpromoted changes: 0");
+    println!("Unpromoted changes: {unpromoted}");
     println!("Active agents: none");
     println!("Policy violations: 0");
     println!("Cost this session: $0.00");

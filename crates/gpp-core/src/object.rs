@@ -17,6 +17,10 @@ use crate::hash::Hash;
 pub enum ObjectType {
     Blob,
     Tree,
+    /// Curated unit of history (defined in `gpp-history`).
+    Changeset,
+    /// Why a change was made (defined in `gpp-history`).
+    Intent,
 }
 
 impl ObjectType {
@@ -25,6 +29,8 @@ impl ObjectType {
         match self {
             ObjectType::Blob => 1,
             ObjectType::Tree => 2,
+            ObjectType::Changeset => 3,
+            ObjectType::Intent => 4,
         }
     }
 
@@ -33,6 +39,8 @@ impl ObjectType {
         match code {
             1 => Ok(ObjectType::Blob),
             2 => Ok(ObjectType::Tree),
+            3 => Ok(ObjectType::Changeset),
+            4 => Ok(ObjectType::Intent),
             other => Err(Error::UnknownObjectType(other)),
         }
     }

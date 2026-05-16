@@ -4,6 +4,15 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "gpp-history (stub — not yet implemented; see docs/ROADMAP.md)"
+description = "gpp curated changeset history + promotion"
 
 [dependencies]
+gpp-core = { path = "../gpp-core" }
+gpp-timeline = { path = "../gpp-timeline" }
+serde.workspace = true
+rmp-serde.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

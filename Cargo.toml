@@ -63,6 +63,11 @@ tracing-subscriber = "0.3"
 # File system
 notify = "7"
 tempfile = "3"
+globset = "0.4"
+walkdir = "2"
+
+# Diff
+similar = "2"
 
 # Tree-sitter
 tree-sitter = "0.24"

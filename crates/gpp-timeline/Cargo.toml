@@ -4,6 +4,17 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "gpp-timeline (stub — not yet implemented; see docs/ROADMAP.md)"
+description = "gpp continuous timeline capture engine"
 
 [dependencies]
+gpp-core = { path = "../gpp-core" }
+rusqlite.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+globset.workspace = true
+walkdir.workspace = true
+notify.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
