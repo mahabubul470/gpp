@@ -398,6 +398,16 @@ pub fn promote(args: &PromoteArgs, repo_override: Option<&Path>) -> Result<()> {
         .map(IntentType::parse)
         .unwrap_or(IntentType::HumanDirected);
 
+    // Phase 4: enforce content policies on the working snapshot. `Block`
+    // severity aborts here — before any changeset object is created.
+    {
+        let store = ObjectStore::open(&repo.gpp_dir());
+        let snap = tl.snapshot_tree()?;
+        let snapshot = flatten_tree(&store, &snap)?;
+        crate::phase4::enforce_content_policies(&repo, &snapshot, &store)?;
+    }
+
+    let author = config_author();
     let outcome = gpp_history::promote(
         &mut tl,
         &refs,
@@ -407,9 +417,18 @@ pub fn promote(args: &PromoteArgs, repo_override: Option<&Path>) -> Result<()> {
             message,
             intent_type,
             task: args.task.clone(),
-            author: config_author(),
+            author: author.clone(),
         },
     )?;
+
+    // Phase 4: record trust / cost / anomaly signals (best-effort).
+    crate::phase4::record_promotion(
+        &repo,
+        &outcome.changeset,
+        author.author_type,
+        &author.identity,
+        &author.name,
+    );
 
     println!(
         "Promoted {} timeline entr{} → cs:{} on {}",

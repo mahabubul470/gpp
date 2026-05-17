@@ -4,6 +4,12 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "gpp-cost (stub — not yet implemented; see docs/ROADMAP.md)"
+description = "gpp token/compute cost attribution"
 
 [dependencies]
+rusqlite.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

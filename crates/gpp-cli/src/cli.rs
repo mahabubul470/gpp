@@ -77,6 +77,150 @@ pub enum Command {
     Graphex(GraphexArgs),
     /// Run the MCP server for AI tool integration
     McpServer(McpServerArgs),
+    /// Agent trust scores and behavioral RBAC
+    Trust(TrustArgs),
+    /// Compliance-as-code policies
+    Policy(PolicyArgs),
+    /// Token / compute cost analytics
+    Cost(CostArgs),
+    /// Agent behavior anomaly alerts
+    Anomaly(AnomalyArgs),
+    /// Cross-layer audit report
+    Audit(AuditArgs),
+}
+
+#[derive(Args)]
+pub struct TrustArgs {
+    #[command(subcommand)]
+    pub action: TrustAction,
+}
+
+#[derive(Subcommand)]
+pub enum TrustAction {
+    /// Show all agent trust scores
+    Show {
+        #[arg(long)]
+        agent: Option<String>,
+    },
+    /// Show an agent's trust event history
+    History {
+        agent: String,
+        #[arg(long)]
+        since: Option<String>,
+    },
+    /// View trust thresholds
+    Policy,
+    /// Manually override an agent's status
+    Override {
+        agent: String,
+        /// auto-merge|review-required|sandboxed|blocked
+        #[arg(long)]
+        status: String,
+        #[arg(long)]
+        reason: String,
+        /// e.g. "7d" or "permanent"
+        #[arg(long)]
+        duration: Option<String>,
+    },
+    /// Reset an agent's score to default
+    Reset { agent: String },
+}
+
+#[derive(Args)]
+pub struct PolicyArgs {
+    #[command(subcommand)]
+    pub action: PolicyAction,
+}
+
+#[derive(Subcommand)]
+pub enum PolicyAction {
+    /// List active policies
+    List,
+    /// Show one policy's rules
+    Show { name: String },
+    /// Add a policy from a file
+    Add { file: std::path::PathBuf },
+    /// Install a built-in template
+    Template { name: String },
+    /// List built-in templates
+    Templates,
+    /// Remove a policy by name
+    Remove { name: String },
+    /// Validate a policy file's syntax
+    Validate { file: std::path::PathBuf },
+    /// Run all policies against the working tree (or a changeset)
+    Check {
+        #[arg(long)]
+        changeset: Option<String>,
+    },
+}
+
+#[derive(Args)]
+pub struct CostArgs {
+    #[arg(long)]
+    pub since: Option<String>,
+    #[arg(long)]
+    pub until: Option<String>,
+    #[arg(long)]
+    pub agent: Option<String>,
+    /// Show cost per surviving line
+    #[arg(long)]
+    pub efficiency: bool,
+    /// Per-agent/model breakdown
+    #[arg(long)]
+    pub breakdown: bool,
+    /// Show budget status
+    #[arg(long)]
+    pub budget: bool,
+    /// Set a weekly budget alert (in dollars) for the given pattern
+    #[arg(long, value_name = "DOLLARS")]
+    pub budget_alert: Option<f64>,
+    #[arg(long, default_value = "**")]
+    pub module: String,
+}
+
+#[derive(Args)]
+pub struct AnomalyArgs {
+    #[command(subcommand)]
+    pub action: Option<AnomalyAction>,
+    #[arg(long)]
+    pub agent: Option<String>,
+    #[arg(long)]
+    pub since: Option<String>,
+}
+
+#[derive(Subcommand)]
+pub enum AnomalyAction {
+    /// Show all anomalies (resolved and not)
+    History,
+    /// Mark an anomaly resolved
+    Resolve {
+        id: i64,
+        #[arg(long)]
+        reason: String,
+    },
+    /// List detection rules
+    Rules,
+    /// Configure a detection rule
+    Configure {
+        rule: String,
+        #[arg(long)]
+        threshold: Option<i64>,
+        #[arg(long)]
+        enabled: Option<bool>,
+    },
+}
+
+#[derive(Args)]
+pub struct AuditArgs {
+    #[arg(long)]
+    pub since: Option<String>,
+    /// Include Graphex access log
+    #[arg(long)]
+    pub include_graphex: bool,
+    /// Include cost summary
+    #[arg(long)]
+    pub include_cost: bool,
 }
 
 #[derive(Args)]

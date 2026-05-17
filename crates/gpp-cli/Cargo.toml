@@ -18,6 +18,10 @@ gpp-diff = { path = "../gpp-diff" }
 gpp-git-bridge = { path = "../gpp-git-bridge" }
 gpp-graphex = { path = "../gpp-graphex" }
 gpp-sdk = { path = "../gpp-sdk" }
+gpp-trust = { path = "../gpp-trust" }
+gpp-policy = { path = "../gpp-policy" }
+gpp-cost = { path = "../gpp-cost" }
+gpp-anomaly = { path = "../gpp-anomaly" }
 globset.workspace = true
 clap.workspace = true
 anyhow.workspace = true

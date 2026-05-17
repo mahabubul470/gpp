@@ -4,6 +4,15 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "gpp-policy (stub — not yet implemented; see docs/ROADMAP.md)"
+description = "gpp compliance-as-code engine"
 
 [dependencies]
+serde.workspace = true
+toml.workspace = true
+regex.workspace = true
+globset.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

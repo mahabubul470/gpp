@@ -802,6 +802,13 @@ dependencies = [
 [[package]]
 name = "gpp-anomaly"
 version = "0.1.0"
+dependencies = [
+ "rusqlite",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tracing",
+]
 
 [[package]]
 name = "gpp-cli"
@@ -811,13 +818,17 @@ dependencies = [
  "assert_cmd",
  "clap",
  "globset",
+ "gpp-anomaly",
  "gpp-core",
+ "gpp-cost",
  "gpp-diff",
  "gpp-git-bridge",
  "gpp-graphex",
  "gpp-history",
+ "gpp-policy",
  "gpp-sdk",
  "gpp-timeline",
+ "gpp-trust",
  "predicates",
  "serde",
  "serde_json",
@@ -843,6 +854,12 @@ dependencies = [
 [[package]]
 name = "gpp-cost"
 version = "0.1.0"
+dependencies = [
+ "rusqlite",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tracing",
+]
 
 [[package]]
 name = "gpp-deps"
@@ -917,6 +934,15 @@ version = "0.1.0"
 [[package]]
 name = "gpp-policy"
 version = "0.1.0"
+dependencies = [
+ "globset",
+ "regex",
+ "serde",
+ "tempfile",
+ "thiserror 2.0.18",
+ "toml 0.8.23",
+ "tracing",
+]
 
 [[package]]
 name = "gpp-rbac"
@@ -974,6 +1000,14 @@ dependencies = [
 [[package]]
 name = "gpp-trust"
 version = "0.1.0"
+dependencies = [
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tracing",
+]
 
 [[package]]
 name = "gpp-tui"

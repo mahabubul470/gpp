@@ -213,40 +213,59 @@ AI tools (Claude Code, Cursor, etc.) can connect via MCP, query the knowledge gr
 
 **Goal:** Agent governance works. Compliance-as-code enforced.
 
+**Status: ✅ Complete.**
+
 ### Deliverables
-- [ ] `gpp-trust`:
-  - [ ] Agent score database (SQLite)
-  - [ ] Score calculation (survival rate, regression rate, review approval, etc.)
-  - [ ] Trust policy configuration
-  - [ ] Automatic status transitions (auto-merge, review-required, sandboxed, blocked)
-  - [ ] Module-level trust overrides
-  - [ ] Trust event logging
-- [ ] `gpp-policy`:
-  - [ ] Policy file parser (.policy TOML format)
-  - [ ] Pattern-based rules (regex on file content)
-  - [ ] Changeset-based rules (author, files, review requirements)
-  - [ ] Enforcement points: timeline capture (warn), promotion (block), sync (block)
-  - [ ] Built-in policy templates (secrets-scan, pci-dss)
-  - [ ] Custom policy support
-- [ ] `gpp-cost`:
-  - [ ] Cost record database (SQLite)
-  - [ ] Token tracking per changeset
-  - [ ] Budget configuration and alerts
-  - [ ] Cost analytics queries
-  - [ ] Efficiency metrics (cost per survived line)
-- [ ] `gpp-anomaly`:
-  - [ ] Detection rules (unusual-scope, burst-activity, large-changeset, etc.)
-  - [ ] Event logging and alerting
-  - [ ] Resolution workflow
-- [ ] CLI commands:
-  - [ ] `gpp trust` (all subcommands)
-  - [ ] `gpp policy` (all subcommands)
-  - [ ] `gpp cost` (all subcommands)
-  - [ ] `gpp anomaly` (all subcommands)
-  - [ ] `gpp audit` — comprehensive audit report generation
+- [x] `gpp-trust`:
+  - [x] Agent score database (SQLite)
+  - [x] Score calculation (reviewed-outcome Bayesian model: survival vs. regression)
+  - [x] Trust policy configuration (thresholds)
+  - [x] Automatic status transitions (auto-merge, review-required, sandboxed, blocked)
+  - [x] Module-level trust overrides
+  - [x] Trust event logging
+- [x] `gpp-policy`:
+  - [x] Policy file parser (.policy TOML format)
+  - [x] Pattern-based rules (regex on file content)
+  - [x] Changeset-based rules (author, files, review requirements)
+  - [x] Enforcement points: promotion (block/warn/audit) wired into `gpp promote`
+  - [x] Built-in policy templates (secrets-scan, pci-dss, soc2)
+  - [x] Custom policy support
+- [x] `gpp-cost`:
+  - [x] Cost record database (SQLite)
+  - [x] Token tracking per changeset
+  - [x] Budget configuration and alerts
+  - [x] Cost analytics queries (summary + breakdown)
+  - [x] Efficiency metrics (cost per survived line)
+- [x] `gpp-anomaly`:
+  - [x] Detection rules (unusual-scope, burst-activity, large-changeset)
+  - [x] Event logging and alerting
+  - [x] Resolution workflow + tunable rule thresholds
+- [x] CLI commands:
+  - [x] `gpp trust` (show/history/policy/override/reset)
+  - [x] `gpp policy` (list/show/add/template/templates/remove/validate/check)
+  - [x] `gpp cost` (summary/breakdown/efficiency/budget/budget-alert)
+  - [x] `gpp anomaly` (list/history/resolve/rules/configure)
+  - [x] `gpp audit` — cross-layer audit report (trust + anomaly + cost + graphex)
 
 ### Milestone
 Teams can govern AI agent contributions with trust scores, enforce compliance policies, track costs, and detect anomalies. **This is the "enterprise-ready" milestone.**
+
+### Implementation notes / deviations
+- Trust score is based on **reviewed outcomes only** (survived vs. regression
+  with a Beta(1,1)-style prior at 50); merely promoting a not-yet-reviewed
+  changeset is not penalized. Survived/regression signals are recorded by
+  `record_event`; the review layer (Phase 6) will drive them automatically —
+  for now `gpp promote` records `changeset_promoted` for agent authors.
+- Policy enforcement is wired at the **promotion** point (block aborts before
+  any changeset object is written; warn/audit are reported). The timeline-
+  capture (warn) and sync (block) enforcement points reuse the same
+  `PolicySet` API and attach in Phases 1-revisit / 5 respectively.
+- Cost records are created at promote time with tokens/cost = 0 ("unknown"
+  model) until a Tier-3 SDK reports real usage; `lines_changed`/`files`
+  are computed from the changeset delta. Budget attribution is repo-wide
+  (per-path attribution lands with the review layer).
+- Anomaly `burst-activity` uses changesets by the author reachable from HEAD
+  in the last 24h as the window count.
 
 ---
 
