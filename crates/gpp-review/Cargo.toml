@@ -4,6 +4,14 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "gpp-review (stub — not yet implemented; see docs/ROADMAP.md)"
+description = "gpp code review workflow engine"
 
 [dependencies]
+gpp-core = { path = "../gpp-core" }
+gpp-rbac = { path = "../gpp-rbac" }
+rusqlite.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

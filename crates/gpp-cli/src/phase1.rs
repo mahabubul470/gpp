@@ -430,6 +430,14 @@ pub fn promote(args: &PromoteArgs, repo_override: Option<&Path>) -> Result<()> {
         &author.name,
     );
 
+    // Phase 6: open a review + emit a promotion event (best-effort).
+    crate::phase6::on_promote(
+        &repo,
+        &outcome.changeset.to_base32(),
+        &author.identity,
+        author.author_type == gpp_history::AuthorType::Agent,
+    );
+
     println!(
         "Promoted {} timeline entr{} → cs:{} on {}",
         outcome.entries_promoted,

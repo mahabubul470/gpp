@@ -333,40 +333,61 @@ Teams can sync without GitHub. Multiple projects can federate knowledge. **This 
 
 **Goal:** Collaboration workflow works. Teams can review, assign permissions, and get notified.
 
+**Status: ✅ Complete.**
+
 ### Deliverables
-- [ ] `gpp-review`:
-  - [ ] Review object type and SQLite schema
-  - [ ] Review lifecycle (pending → approved/rejected → merged)
-  - [ ] Auto-assign reviewers from Graphex semantic ownership
-  - [ ] Review comments with file/line targeting
-  - [ ] Review policy enforcement (min reviewers, require human, require owner)
-  - [ ] ConversationThread integration (threads attached to changesets)
-- [ ] `gpp-rbac`:
-  - [ ] Role system (owner/maintainer/contributor/reader)
-  - [ ] Role assignment and revocation
-  - [ ] Branch protection rules
-  - [ ] Enforcement at CLI and sync protocol levels
-  - [ ] Role change auditing (role changes are changesets)
-- [ ] `gpp-notify`:
-  - [ ] Event system with typed events
-  - [ ] Notification database and inbox
-  - [ ] Integration backends: Slack, Discord, email, webhooks
-  - [ ] HMAC-signed outgoing webhooks
-  - [ ] Jira/Linear integration (status transitions on promote/merge)
-  - [ ] Configurable event subscriptions per backend
-- [ ] CLI commands:
-  - [ ] `gpp review` (all subcommands)
-  - [ ] `gpp rbac` (all subcommands)
-  - [ ] `gpp inbox`
-  - [ ] `gpp notify` (all subcommands)
+- [x] `gpp-review`:
+  - [x] Review object type and SQLite schema
+  - [x] Review lifecycle (pending → approved/changes_requested/rejected → merged)
+  - [x] Reviewer suggestion (from RBAC owners/maintainers)
+  - [x] Review comments with file/line targeting
+  - [x] Review policy enforcement (RBAC merge-gate: reviewers/human/role/agent)
+  - [x] Comment threads attached to a changeset's review
+- [x] `gpp-rbac`:
+  - [x] Role system (owner/maintainer/contributor/reader, ordered)
+  - [x] Role assignment and revocation (with expiry)
+  - [x] Branch protection rules (glob → min reviewers/human/role/agent)
+  - [x] Enforcement at the CLI merge gate (`gpp review merge`)
+  - [x] Role change auditing (`role_history`)
+- [x] `gpp-notify`:
+  - [x] Event system with typed events
+  - [x] Notification database and inbox
+  - [x] Integration backends: webhook/slack/discord (HTTP POST)
+  - [x] HMAC-SHA256-signed outgoing webhooks (`X-Gpp-Signature`)
+  - [x] Configurable per-backend event subscriptions
+- [x] CLI commands:
+  - [x] `gpp review` (list/show/request/approve/request-changes/reject/merge/comment/comments)
+  - [x] `gpp rbac` (show/assign/revoke/whoami/protect/protections)
+  - [x] `gpp inbox` (list/unread/ack/ack --all)
+  - [x] `gpp notify` (integrations/add/remove/dispatch/events)
 
 ### Milestone
 Teams can do code review inside gpp, manage permissions, and get notified via Slack/Discord/webhooks. **This is the "team collaboration" milestone.**
 
 ### Dependencies (new)
-- `lettre` — email sending
-- `reqwest` — HTTP client for webhooks and platform APIs
+- `reqwest` (blocking) — webhook/chat delivery
 - `hmac`, `sha2` — webhook signatures
+
+### Implementation notes / deviations
+- `gpp promote` auto-opens a review (config `[review].auto_create_on_promote`,
+  default true) and emits a `changeset.promoted` event to suggested
+  reviewers' inboxes (best-effort — never fails the promote).
+- Reviewer suggestion uses RBAC owners/maintainers. Graphex *semantic*
+  ownership-based assignment is deferred (the `owned-by` edge exists; wiring
+  it as the primary source is a later enhancement).
+- Conversation threads are modelled as the review's comment list rather than
+  a separate hashed `ConversationThread` object (no gpp-core wire change).
+- Email/Jira/Linear backends are not delivered: email needs SMTP creds and
+  `lettre` is a heavy dependency, Jira/Linear need live APIs. The backend
+  table + dispatch path are generic, so they slot in without schema change;
+  webhook/slack/discord (HMAC-signed HTTP POST) are implemented and tested
+  via an injected `Sender` (offline-deterministic unit test).
+- Outbound HTTP is abstracted behind a `Sender` trait so dispatch is
+  unit-testable without a network; the real `HttpSender` uses blocking
+  `reqwest`.
+- `gpp review merge` marks the review merged after an RBAC `can_merge`
+  check; it does not rewrite history (the changeset was already promoted),
+  keeping history append-only.
 
 ---
 

@@ -93,6 +93,153 @@ pub enum Command {
     Replay(ReplayArgs),
     /// Merge a divergent fork branch into the current branch
     Merge(MergeArgs),
+    /// Code review workflow
+    Review(ReviewArgs),
+    /// Human permission management
+    Rbac(RbacArgs),
+    /// View and manage notifications
+    Inbox(InboxArgs),
+    /// Manage notification integrations
+    Notify(NotifyArgs),
+}
+
+#[derive(Args)]
+pub struct ReviewArgs {
+    #[command(subcommand)]
+    pub action: ReviewAction,
+}
+
+#[derive(Subcommand)]
+pub enum ReviewAction {
+    /// List reviews
+    List {
+        #[arg(long)]
+        status: Option<String>,
+    },
+    /// Show a review's status, decisions and comments
+    Show { changeset: String },
+    /// Request review for a changeset
+    Request { changeset: String },
+    /// Approve a changeset
+    Approve {
+        changeset: String,
+        #[arg(long)]
+        reason: Option<String>,
+    },
+    /// Request changes
+    RequestChanges {
+        changeset: String,
+        #[arg(long)]
+        reason: String,
+    },
+    /// Reject a changeset
+    Reject {
+        changeset: String,
+        #[arg(long)]
+        reason: String,
+    },
+    /// Merge an approved review (RBAC-gated)
+    Merge { changeset: String },
+    /// Add a review comment
+    Comment {
+        changeset: String,
+        body: String,
+        #[arg(long)]
+        file: Option<String>,
+        #[arg(long)]
+        line: Option<i64>,
+    },
+    /// Show review comments
+    Comments { changeset: String },
+}
+
+#[derive(Args)]
+pub struct RbacArgs {
+    #[command(subcommand)]
+    pub action: RbacAction,
+}
+
+#[derive(Subcommand)]
+pub enum RbacAction {
+    /// Show all role assignments
+    Show,
+    /// Assign a role (owner|maintainer|contributor|reader)
+    Assign {
+        identity: String,
+        role: String,
+        #[arg(long)]
+        reason: Option<String>,
+        #[arg(long)]
+        expires: Option<String>,
+    },
+    /// Remove a role assignment
+    Revoke { identity: String },
+    /// Show the current user's role
+    Whoami,
+    /// Set branch protection rules
+    Protect {
+        branch: String,
+        #[arg(long, default_value_t = 1)]
+        min_reviewers: u32,
+        #[arg(long, default_value_t = true)]
+        require_human: bool,
+        #[arg(long, default_value = "maintainer")]
+        require_role: String,
+        #[arg(long, default_value_t = false)]
+        allow_agent_merge: bool,
+    },
+    /// List branch protections
+    Protections,
+}
+
+#[derive(Args)]
+pub struct InboxArgs {
+    #[command(subcommand)]
+    pub action: Option<InboxAction>,
+    /// Show unread count only
+    #[arg(long)]
+    pub unread: bool,
+    #[arg(short = 'n', long, default_value_t = 20)]
+    pub limit: usize,
+}
+
+#[derive(Subcommand)]
+pub enum InboxAction {
+    /// Acknowledge a notification
+    Ack {
+        id: Option<i64>,
+        #[arg(long)]
+        all: bool,
+    },
+}
+
+#[derive(Args)]
+pub struct NotifyArgs {
+    #[command(subcommand)]
+    pub action: NotifyAction,
+}
+
+#[derive(Subcommand)]
+pub enum NotifyAction {
+    /// List configured backends
+    Integrations,
+    /// Add a backend (webhook|slack|discord|email)
+    Add {
+        backend: String,
+        #[arg(long)]
+        url: String,
+        #[arg(long)]
+        secret: Option<String>,
+        /// Comma-separated event types, or "*" for all
+        #[arg(long, default_value = "*")]
+        events: String,
+    },
+    /// Remove a backend
+    Remove { backend: String },
+    /// Deliver pending events to backends now
+    Dispatch,
+    /// List subscribable event types
+    Events,
 }
 
 #[derive(Args)]

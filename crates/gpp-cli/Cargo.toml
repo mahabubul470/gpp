@@ -24,6 +24,9 @@ gpp-cost = { path = "../gpp-cost" }
 gpp-anomaly = { path = "../gpp-anomaly" }
 gpp-sync = { path = "../gpp-sync" }
 gpp-replay = { path = "../gpp-replay" }
+gpp-rbac = { path = "../gpp-rbac" }
+gpp-review = { path = "../gpp-review" }
+gpp-notify = { path = "../gpp-notify" }
 globset.workspace = true
 clap.workspace = true
 anyhow.workspace = true
