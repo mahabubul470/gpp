@@ -14,6 +14,7 @@ mod phase3;
 mod phase4;
 mod phase5;
 mod phase6;
+mod phase7;
 mod repo;
 
 use std::process::ExitCode;
@@ -55,6 +56,8 @@ fn main() -> ExitCode {
         Command::Rbac(a) => phase6::rbac(a, repo_override),
         Command::Inbox(a) => phase6::inbox(a, repo_override),
         Command::Notify(a) => phase6::notify(a, repo_override),
+        Command::Remote(a) => phase7::remote(a, repo_override),
+        Command::Relay(a) => phase7::relay(a, repo_override),
     };
 
     match result {

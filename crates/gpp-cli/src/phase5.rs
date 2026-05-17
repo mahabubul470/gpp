@@ -53,7 +53,7 @@ fn peers_path(repo: &Repo) -> std::path::PathBuf {
 }
 
 /// `(name, address)` pairs from `.gpp/sync/peers.toml`.
-fn load_peers(repo: &Repo) -> Vec<(String, String)> {
+pub(crate) fn load_peers(repo: &Repo) -> Vec<(String, String)> {
     let Ok(text) = std::fs::read_to_string(peers_path(repo)) else {
         return Vec::new();
     };
@@ -75,7 +75,7 @@ fn load_peers(repo: &Repo) -> Vec<(String, String)> {
         .unwrap_or_default()
 }
 
-fn save_peers(repo: &Repo, peers: &[(String, String)]) -> Result<()> {
+pub(crate) fn save_peers(repo: &Repo, peers: &[(String, String)]) -> Result<()> {
     let mut s = String::new();
     for (n, a) in peers {
         s.push_str(&format!("[[peer]]\nname = {n:?}\naddress = {a:?}\n\n"));
@@ -86,7 +86,7 @@ fn save_peers(repo: &Repo, peers: &[(String, String)]) -> Result<()> {
     Ok(())
 }
 
-fn print_report(name: &str, r: &SyncReport) {
+pub(crate) fn print_report(name: &str, r: &SyncReport) {
     println!(
         "synced {name}: ↓{} objects, {} refs adopted, {} forks, {} policies, {} graph rows",
         r.objects_received, r.refs_adopted, r.forks_created, r.policies_added, r.graph_rows_merged

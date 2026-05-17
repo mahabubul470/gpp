@@ -1,0 +1,25 @@
+name: gpp policy check
+description: Run gpp compliance policies against the repository and fail on blocking violations.
+inputs:
+  changeset:
+    description: Changeset to check (default HEAD)
+    required: false
+    default: HEAD
+runs:
+  using: composite
+  steps:
+    - name: Install gpp
+      shell: bash
+      run: cargo install --git https://github.com/gpp-vcs/gpp gpp-cli || true
+    - name: Import Git history into gpp
+      shell: bash
+      run: |
+        gpp init . >/dev/null 2>&1 || true
+        gpp git-import .
+    - name: Policy check
+      shell: bash
+      run: |
+        set -e
+        out="$(gpp policy check --changeset '${{ inputs.changeset }}')"
+        echo "$out"
+        echo "$out" | grep -qE '^block ' && { echo '::error::blocking policy violation'; exit 3; } || true

@@ -4,6 +4,16 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "gpp-relay (stub — not yet implemented; see docs/ROADMAP.md)"
+description = "gpp always-on relay node (sync hub, no special authority)"
+
+[[bin]]
+name = "gpp-relay"
+path = "src/main.rs"
 
 [dependencies]
+gpp-core = { path = "../gpp-core" }
+gpp-sync = { path = "../gpp-sync" }
+clap.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+tracing-subscriber = { workspace = true, features = ["env-filter"] }

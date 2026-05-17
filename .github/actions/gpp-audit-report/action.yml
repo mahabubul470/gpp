@@ -1,0 +1,20 @@
+name: gpp audit report
+description: Generate a cross-layer gpp audit report and upload it as a build artifact.
+runs:
+  using: composite
+  steps:
+    - name: Install gpp
+      shell: bash
+      run: cargo install --git https://github.com/gpp-vcs/gpp gpp-cli || true
+    - name: Generate report
+      shell: bash
+      run: |
+        gpp init . >/dev/null 2>&1 || true
+        gpp git-import .
+        gpp audit --include-cost --include-graphex > gpp-audit.md || gpp audit > gpp-audit.md
+        cat gpp-audit.md
+    - name: Upload report
+      uses: actions/upload-artifact@v4
+      with:
+        name: gpp-audit-report
+        path: gpp-audit.md

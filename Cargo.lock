@@ -917,6 +917,7 @@ dependencies = [
  "gpp-notify",
  "gpp-policy",
  "gpp-rbac",
+ "gpp-remote",
  "gpp-replay",
  "gpp-review",
  "gpp-sdk",
@@ -1063,10 +1064,30 @@ dependencies = [
 [[package]]
 name = "gpp-relay"
 version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "gpp-core",
+ "gpp-sync",
+ "tracing",
+ "tracing-subscriber",
+]
 
 [[package]]
 name = "gpp-remote"
 version = "0.1.0"
+dependencies = [
+ "gpp-core",
+ "gpp-git-bridge",
+ "gpp-history",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.18",
+ "toml 0.8.23",
+ "tracing",
+]
 
 [[package]]
 name = "gpp-replay"

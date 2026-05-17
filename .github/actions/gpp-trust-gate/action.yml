@@ -1,0 +1,24 @@
+name: gpp trust gate
+description: Fail the build if the changeset author is a blocked or sandboxed agent.
+inputs:
+  agent:
+    description: Agent id to gate on (default — gate all blocked agents)
+    required: false
+    default: ""
+runs:
+  using: composite
+  steps:
+    - name: Install gpp
+      shell: bash
+      run: cargo install --git https://github.com/gpp-vcs/gpp gpp-cli || true
+    - name: Trust gate
+      shell: bash
+      run: |
+        set -e
+        gpp init . >/dev/null 2>&1 || true
+        gpp git-import .
+        json="$(gpp --json trust show ${{ inputs.agent && format('--agent {0}', inputs.agent) || '' }})"
+        echo "$json"
+        if echo "$json" | grep -q '"status": *"blocked"'; then
+          echo "::error::a blocked agent authored changes"; exit 4
+        fi

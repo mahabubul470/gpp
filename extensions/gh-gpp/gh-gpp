@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+# gh-gpp — GitHub CLI extension bringing gpp intelligence to PRs.
+#
+# Install (from a checkout):  gh extension install ./extensions/gh-gpp
+# Usage:                      gh gpp <command> [args]
+#
+# Commands:
+#   promote -m "<msg>"   Promote + git push + open an enriched PR
+#   review <pr|cs>       Show a changeset with gpp review context
+#   trust [--agent ID]   Post trust scores as a PR comment (or print)
+#   cost                 Post cost attribution as a PR comment (or print)
+#   audit                Generate an audit report (optionally as a gist)
+#   sync                 Pull the GitHub default branch into gpp
+#
+# Note: this is a Bash `gh` extension (gh runs any executable named
+# gh-<name>); a Go rewrite is optional. Requires `gpp` and `gh` on PATH.
+set -euo pipefail
+
+die() { echo "gh-gpp: $*" >&2; exit 1; }
+need() { command -v "$1" >/dev/null 2>&1 || die "missing dependency: $1"; }
+need gpp
+need gh
+
+cmd="${1:-help}"; shift || true
+
+current_branch() { gpp branch 2>/dev/null | awk '/^\* /{print $2; exit}'; }
+
+case "$cmd" in
+  promote)
+    msg=""
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        -m|--message) msg="$2"; shift 2;;
+        *) shift;;
+      esac
+    done
+    [ -n "$msg" ] || die "usage: gh gpp promote -m \"<message>\""
+    gpp promote -m "$msg"
+    branch="$(current_branch || echo main)"
+    # Export gpp history to Git and push the branch.
+    repo="$(gh repo view --json nameWithOwner -q .nameWithOwner)"
+    gpp remote setup --platform github --repository "$repo" >/dev/null 2>&1 || true
+    gpp remote pr create --base "${GPP_BASE:-main}" --head "$branch" \
+      || die "PR creation failed (is GITHUB_TOKEN set?)"
+    ;;
+
+  review)
+    target="${1:-HEAD}"
+    echo "## gpp review context for ${target}"
+    gpp diff "${target}" --semantic 2>/dev/null || gpp diff "${target}"
+    gpp review show "${target}" 2>/dev/null || echo "(no gpp review yet)"
+    ;;
+
+  trust)
+    out="$(gpp trust show "$@")"
+    if pr="$(gh pr view --json number -q .number 2>/dev/null)"; then
+      printf '### 🤖 gpp trust\n```\n%s\n```\n' "$out" | gh pr comment "$pr" -F -
+      echo "posted trust scores to PR #$pr"
+    else
+      echo "$out"
+    fi
+    ;;
+
+  cost)
+    out="$(gpp cost "$@")"
+    if pr="$(gh pr view --json number -q .number 2>/dev/null)"; then
+      printf '### 🤖 gpp cost\n```\n%s\n```\n' "$out" | gh pr comment "$pr" -F -
+      echo "posted cost attribution to PR #$pr"
+    else
+      echo "$out"
+    fi
+    ;;
+
+  audit)
+    report="$(gpp audit --include-cost --include-graphex 2>/dev/null || gpp audit)"
+    if [ "${1:-}" = "--gist" ]; then
+      echo "$report" | gh gist create -f gpp-audit.md -
+    else
+      echo "$report"
+    fi
+    ;;
+
+  sync)
+    base="$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name)"
+    tmp="$(mktemp -d)"
+    gh repo clone "$(gh repo view --json nameWithOwner -q .nameWithOwner)" "$tmp" -- --depth 1 --branch "$base"
+    gpp git-import "$tmp"
+    rm -rf "$tmp"
+    echo "imported GitHub '$base' into gpp"
+    ;;
+
+  help|--help|-h|"")
+    sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'
+    ;;
+
+  *)
+    die "unknown command: $cmd (try: gh gpp help)"
+    ;;
+esac

@@ -101,6 +101,67 @@ pub enum Command {
     Inbox(InboxArgs),
     /// Manage notification integrations
     Notify(NotifyArgs),
+    /// Interact with GitHub/GitLab/Bitbucket/Git remotes
+    Remote(RemoteArgs),
+    /// Manage relay node connections (client-side)
+    Relay(RelayArgs),
+}
+
+#[derive(Args)]
+pub struct RemoteArgs {
+    #[command(subcommand)]
+    pub action: RemoteAction,
+}
+
+#[derive(Subcommand)]
+pub enum RemoteAction {
+    /// Configure the remote platform connection
+    Setup {
+        #[arg(long, default_value = "github")]
+        platform: String,
+        #[arg(long)]
+        repository: String,
+        #[arg(long, default_value = "GITHUB_TOKEN")]
+        token_env: String,
+        #[arg(long, default_value = "")]
+        remote_url: String,
+    },
+    /// Show remote configuration / status
+    Status,
+    /// Create a PR/MR enriched with gpp metadata
+    PrCreate {
+        #[arg(long, default_value = "main")]
+        base: String,
+        #[arg(long)]
+        head: Option<String>,
+        #[arg(long)]
+        title: Option<String>,
+    },
+    /// Push gpp history to a plain Git remote (no platform API)
+    Push {
+        #[arg(long, default_value = "main")]
+        branch: String,
+    },
+}
+
+#[derive(Args)]
+pub struct RelayArgs {
+    #[command(subcommand)]
+    pub action: RelayAction,
+}
+
+#[derive(Subcommand)]
+pub enum RelayAction {
+    /// Show configured relay/peer connections
+    Status,
+    /// Add a relay node
+    Add { name: String, address: String },
+    /// Remove a relay node
+    Remove { name: String },
+    /// Push to a relay (sync)
+    Push { name: String },
+    /// Pull from a relay (sync)
+    Pull { name: String },
 }
 
 #[derive(Args)]

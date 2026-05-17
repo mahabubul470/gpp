@@ -1,0 +1,39 @@
+# gpp GitLab CI template.
+# Include from your .gitlab-ci.yml:
+#
+#   include:
+#     - remote: 'https://raw.githubusercontent.com/gpp-vcs/gpp/main/ci/gitlab/gpp.gitlab-ci.yml'
+#
+# Provides three jobs: policy check (blocking), trust gate, audit artifact.
+
+.gpp-base:
+  image: rust:1-slim
+  before_script:
+    - apt-get update && apt-get install -y --no-install-recommends pkg-config libssl-dev cmake clang git
+    - cargo install --git https://github.com/gpp-vcs/gpp gpp-cli || true
+    - gpp init . >/dev/null 2>&1 || true
+    - gpp git-import .
+
+gpp-policy-check:
+  extends: .gpp-base
+  stage: test
+  script:
+    - out="$(gpp policy check --changeset HEAD)"; echo "$out"
+    - if echo "$out" | grep -qE '^block '; then echo "blocking policy violation"; exit 3; fi
+
+gpp-trust-gate:
+  extends: .gpp-base
+  stage: test
+  script:
+    - json="$(gpp --json trust show)"; echo "$json"
+    - if echo "$json" | grep -q '"status": *"blocked"'; then echo "blocked agent authored changes"; exit 4; fi
+
+gpp-audit-report:
+  extends: .gpp-base
+  stage: test
+  script:
+    - gpp audit --include-cost --include-graphex > gpp-audit.md || gpp audit > gpp-audit.md
+    - cat gpp-audit.md
+  artifacts:
+    paths: [gpp-audit.md]
+    when: always

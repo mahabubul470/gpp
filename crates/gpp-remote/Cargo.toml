@@ -4,6 +4,18 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "gpp-remote (stub — not yet implemented; see docs/ROADMAP.md)"
+description = "gpp platform integration (GitHub/GitLab/Bitbucket/Git)"
 
 [dependencies]
+gpp-core = { path = "../gpp-core" }
+gpp-history = { path = "../gpp-history" }
+gpp-git-bridge = { path = "../gpp-git-bridge" }
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+toml.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+reqwest = { workspace = true, features = ["blocking", "json"] }
+
+[dev-dependencies]
+tempfile.workspace = true
