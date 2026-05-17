@@ -26,7 +26,7 @@ pub use object::{
 };
 pub use project::{Projection, project};
 pub use query::{Pattern, QueryOpts, ResolvedPath, run as query};
-pub use store::{GraphStore, NodeMeta, active_node};
+pub use store::{EdgeIndexRow, GraphStore, NodeIndexRow, NodeMeta, active_node};
 
 #[cfg(test)]
 mod tests {

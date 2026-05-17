@@ -233,6 +233,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c4512299f36f043ab09a583e57bceb5a5aab7a73db1805848e8fef3c9e8c78b3"
 
 [[package]]
+name = "blake2"
+version = "0.10.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "46502ad458c9a52b69d4d4d32775c788b7a1b85e8bc9d482d92250fc0e3f8efe"
+dependencies = [
+ "digest",
+]
+
+[[package]]
 name = "blake3"
 version = "1.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -826,7 +835,9 @@ dependencies = [
  "gpp-graphex",
  "gpp-history",
  "gpp-policy",
+ "gpp-replay",
  "gpp-sdk",
+ "gpp-sync",
  "gpp-timeline",
  "gpp-trust",
  "predicates",
@@ -959,6 +970,14 @@ version = "0.1.0"
 [[package]]
 name = "gpp-replay"
 version = "0.1.0"
+dependencies = [
+ "gpp-core",
+ "gpp-history",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.18",
+]
 
 [[package]]
 name = "gpp-review"
@@ -981,6 +1000,17 @@ dependencies = [
 [[package]]
 name = "gpp-sync"
 version = "0.1.0"
+dependencies = [
+ "gpp-core",
+ "gpp-graphex",
+ "gpp-history",
+ "serde",
+ "serde_json",
+ "snow",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tracing",
+]
 
 [[package]]
 name = "gpp-timeline"
@@ -2133,6 +2163,22 @@ name = "smallvec"
 version = "1.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "67b1b7a3b5fe4f1376887184045fcf45c69e92af734b7aaddc05fb777b6fbd03"
+
+[[package]]
+name = "snow"
+version = "0.9.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "850948bee068e713b8ab860fe1adc4d109676ab4c3b621fd8147f06b261f2f85"
+dependencies = [
+ "aes-gcm",
+ "blake2",
+ "chacha20poly1305",
+ "curve25519-dalek",
+ "rand_core",
+ "rustc_version",
+ "sha2",
+ "subtle",
+]
 
 [[package]]
 name = "stable_deref_trait"

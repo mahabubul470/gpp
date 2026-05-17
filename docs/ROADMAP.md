@@ -273,40 +273,59 @@ Teams can govern AI agent contributions with trust scores, enforce compliance po
 
 **Goal:** Peer-to-peer sync works. No GitHub dependency needed.
 
+**Status: ✅ Complete.**
+
 ### Deliverables
-- [ ] `gpp-sync`:
-  - [ ] Noise protocol handshake (via snow crate)
-  - [ ] State vector exchange (bloom filters, branch tips, vector clocks)
-  - [ ] Delta computation
-  - [ ] Object transfer (batched, compressed)
-  - [ ] History sync (changeset DAG, ref updates via LWW)
-  - [ ] Graphex sync (OR-Set CRDT, zero-knowledge)
-  - [ ] Policy sync
-  - [ ] Conflict detection and resolution
-  - [ ] Resume after connection loss
-  - [ ] Peer authentication (TOFU key exchange)
-  - [ ] Peer permission model
-- [ ] `gpp-replay`:
-  - [ ] Environment snapshot creation
-  - [ ] Snapshot storage as objects
-  - [ ] Replay execution engine
-  - [ ] Diff between replay and original
-- [ ] Graphex federation:
-  - [ ] Publish/subscribe subgraphs
-  - [ ] Federated node lifecycle
-  - [ ] Cross-project sync
-- [ ] CLI commands:
-  - [ ] `gpp sync` (all subcommands)
-  - [ ] `gpp replay`
-  - [ ] `gpp graphex federation`
+- [x] `gpp-sync`:
+  - [x] Noise protocol handshake (Noise_XX via `snow`)
+  - [x] State vector exchange (object id set, branch tips, policy set)
+  - [x] Delta computation (set difference over state vectors)
+  - [x] Object transfer (raw verified frames, chunked over Noise)
+  - [x] History sync (changeset objects + ref reconcile)
+  - [x] Graphex sync (OR-Set add / LWW metadata, zero-knowledge)
+  - [x] Policy sync (add-only union by name)
+  - [x] Conflict detection (divergent branch → `name.fork.<peer>`)
+  - [x] Resume after connection loss (state exchange is idempotent/cheap)
+  - [x] Peer authentication (TOFU static-key pinning)
+  - [x] Peer permission model (known-peers gate; relay ACLs in Phase 7)
+- [x] `gpp-replay`:
+  - [x] Environment snapshot creation
+  - [x] Snapshot storage as objects
+  - [x] Replay re-materialization engine
+  - [x] Diff between replay and original (drift detection)
+- [x] Graphex federation:
+  - [x] Publish/subscribe subgraphs (federated sources config + graph-only sync)
+  - [x] Federated node lifecycle (rides OR-Set graphex sync)
+  - [x] Cross-project sync (`gpp sync --graph-only`)
+- [x] CLI commands:
+  - [x] `gpp sync` (add/remove/status/serve/peer/default-all)
+  - [x] `gpp replay` (dry-run/diff/output/env)
+  - [x] `gpp graphex federation` (add/list), plus `gpp merge`
 
 ### Milestone
 Teams can sync without GitHub. Multiple projects can federate knowledge. **This is the "decentralized" milestone.**
 
 ### Dependencies (new)
 - `snow` — Noise protocol
-- `bloom` or custom — bloom filters
-- `automerge` or custom — CRDT operations
+
+### Implementation notes / deviations
+- State exchange uses an explicit object-id set rather than a bloom filter
+  (correct and simple at current scale; a bloom filter is a drop-in
+  optimization later). The transport chunks messages so payloads larger
+  than a 64 KiB Noise message transfer transparently.
+- Ref conflicts are **fork-preserving** rather than Lamport-LWW: a divergent
+  same-name branch is kept as `name.fork.<peer>` (gpp ref names disallow
+  `@`, so the doc's `name@peer` becomes `name.fork.peer`). `gpp merge`
+  resolves a fork into the current branch via a two-parent merge changeset
+  taking the fork's tree (explicit, human-reviewed — never a silent merge).
+- Graphex sync is zero-knowledge: encrypted node blobs ride the object set;
+  only index metadata merges (node upsert keeps higher `updated_at`; edges
+  add-only). A backup peer without tier keys still cannot read content.
+- Trust and timeline are never synced (per `docs/SYNC_PROTOCOL.md`).
+- `gpp-replay` reproduces *inputs* deterministically/offline (tree +
+  captured toolchain/env). Re-executing the original agent is out of scope.
+- Federation is config + graph-only sync; richer publish-filter globs and
+  one-way federated read-only enforcement are a later hardening pass.
 
 ---
 

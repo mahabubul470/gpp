@@ -22,6 +22,8 @@ gpp-trust = { path = "../gpp-trust" }
 gpp-policy = { path = "../gpp-policy" }
 gpp-cost = { path = "../gpp-cost" }
 gpp-anomaly = { path = "../gpp-anomaly" }
+gpp-sync = { path = "../gpp-sync" }
+gpp-replay = { path = "../gpp-replay" }
 globset.workspace = true
 clap.workspace = true
 anyhow.workspace = true

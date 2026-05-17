@@ -4,6 +4,17 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "gpp-sync (stub — not yet implemented; see docs/ROADMAP.md)"
+description = "gpp CRDT-based P2P sync (Noise transport)"
 
 [dependencies]
+gpp-core = { path = "../gpp-core" }
+gpp-history = { path = "../gpp-history" }
+gpp-graphex = { path = "../gpp-graphex" }
+snow.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

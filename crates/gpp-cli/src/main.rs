@@ -12,6 +12,7 @@ mod phase1;
 mod phase2;
 mod phase3;
 mod phase4;
+mod phase5;
 mod repo;
 
 use std::process::ExitCode;
@@ -46,6 +47,9 @@ fn main() -> ExitCode {
         Command::Cost(a) => phase4::cost(a, repo_override, args.json),
         Command::Anomaly(a) => phase4::anomaly(a, repo_override),
         Command::Audit(a) => phase4::audit(a, repo_override),
+        Command::Sync(a) => phase5::sync(a, repo_override),
+        Command::Replay(a) => phase5::replay(a, repo_override),
+        Command::Merge(a) => phase5::merge(a, repo_override),
     };
 
     match result {

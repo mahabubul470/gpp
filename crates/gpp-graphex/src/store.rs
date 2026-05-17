@@ -28,6 +28,33 @@ pub struct GraphStore {
 /// nodes_accessed_json)`.
 pub type AuditRow = (i64, String, String, String, String);
 
+/// Index row for a node, for zero-knowledge sync (no plaintext — the
+/// encrypted blob it points at is synced separately as an object).
+/// `(hash, node_type, name, tier, created_at, updated_at, confidence, state, blob)`
+pub type NodeIndexRow = (
+    String,
+    String,
+    String,
+    String,
+    i64,
+    i64,
+    f64,
+    String,
+    String,
+);
+
+/// `(hash, from_node, to_node, relation, bidirectional, created_at, confidence, meta)`
+pub type EdgeIndexRow = (
+    String,
+    String,
+    String,
+    String,
+    i64,
+    i64,
+    f64,
+    Option<String>,
+);
+
 /// A node's index row (cheap to list without decrypting content).
 #[derive(Debug, Clone)]
 pub struct NodeMeta {
@@ -463,6 +490,83 @@ impl GraphStore {
 
     pub fn keys(&self) -> &KeyStore {
         &self.keys
+    }
+
+    // ---- sync (OR-Set, zero-knowledge) ----------------------------------
+
+    /// Export the node + edge index for sync. Encrypted content is *not*
+    /// included — its blob is a content-addressed object synced separately.
+    pub fn export_index(&self) -> Result<(Vec<NodeIndexRow>, Vec<EdgeIndexRow>)> {
+        let mut ns = self.conn.prepare(
+            "SELECT hash, node_type, name, access_tier, created_at, updated_at,
+                    confidence, state, blob FROM graph_nodes",
+        )?;
+        let nodes = ns
+            .query_map([], |r| {
+                Ok((
+                    r.get(0)?,
+                    r.get(1)?,
+                    r.get(2)?,
+                    r.get(3)?,
+                    r.get(4)?,
+                    r.get(5)?,
+                    r.get(6)?,
+                    r.get(7)?,
+                    r.get(8)?,
+                ))
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        let mut es = self.conn.prepare(
+            "SELECT hash, from_node, to_node, relation, bidirectional,
+                    created_at, confidence, meta FROM graph_edges",
+        )?;
+        let edges = es
+            .query_map([], |r| {
+                Ok((
+                    r.get(0)?,
+                    r.get(1)?,
+                    r.get(2)?,
+                    r.get(3)?,
+                    r.get(4)?,
+                    r.get(5)?,
+                    r.get(6)?,
+                    r.get(7)?,
+                ))
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        Ok((nodes, edges))
+    }
+
+    /// Merge a peer's index (OR-Set semantics): nodes upsert keeping the
+    /// higher `updated_at` (LWW on metadata); edges are add-only. Returns
+    /// the number of rows touched.
+    pub fn import_index(&self, nodes: &[NodeIndexRow], edges: &[EdgeIndexRow]) -> Result<usize> {
+        let mut n = 0;
+        for r in nodes {
+            n += self.conn.execute(
+                "INSERT INTO graph_nodes
+                    (hash, node_type, name, access_tier, created_at, updated_at,
+                     confidence, state, blob)
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)
+                 ON CONFLICT(hash) DO UPDATE SET
+                    node_type=excluded.node_type, name=excluded.name,
+                    access_tier=excluded.access_tier, updated_at=excluded.updated_at,
+                    confidence=excluded.confidence, state=excluded.state,
+                    blob=excluded.blob
+                 WHERE excluded.updated_at > graph_nodes.updated_at",
+                params![r.0, r.1, r.2, r.3, r.4, r.5, r.6, r.7, r.8],
+            )?;
+        }
+        for e in edges {
+            n += self.conn.execute(
+                "INSERT OR IGNORE INTO graph_edges
+                    (hash, from_node, to_node, relation, bidirectional,
+                     created_at, confidence, meta)
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8)",
+                params![e.0, e.1, e.2, e.3, e.4, e.5, e.6, e.7],
+            )?;
+        }
+        Ok(n)
     }
 }
 

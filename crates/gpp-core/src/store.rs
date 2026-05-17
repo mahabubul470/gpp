@@ -75,6 +75,73 @@ impl ObjectStore {
         Ok(id)
     }
 
+    /// Raw stored frame bytes for an object (for sync transfer). The object
+    /// is *not* decoded — callers move opaque, content-addressed frames.
+    pub fn read_raw(&self, id: &Hash) -> Result<Vec<u8>> {
+        match fs::read(self.path_for(id)) {
+            Ok(b) => Ok(b),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Err(Error::NotFound(*id)),
+            Err(e) => Err(Error::Io(e)),
+        }
+    }
+
+    /// Write a raw frame received from a peer. The frame is decoded and its
+    /// BLAKE3 body hash must equal `id`, so a malicious peer cannot inject
+    /// content under the wrong address. Idempotent.
+    pub fn write_raw(&self, id: &Hash, frame: &[u8]) -> Result<()> {
+        let decoded = wire::decode(frame)?;
+        let computed = Hash::of(&decoded.body);
+        if computed != *id {
+            return Err(Error::HashMismatch {
+                expected: *id,
+                computed,
+            });
+        }
+        let path = self.path_for(id);
+        if path.exists() {
+            return Ok(());
+        }
+        let dir = path
+            .parent()
+            .expect("object path always has a shard parent");
+        fs::create_dir_all(dir)?;
+        let tmp = dir.join(format!(".tmp-{}", id.short()));
+        {
+            let mut f = fs::File::create(&tmp)?;
+            f.write_all(frame)?;
+            f.sync_all()?;
+        }
+        fs::rename(&tmp, &path)?;
+        Ok(())
+    }
+
+    /// Enumerate every stored object id (skips `.tmp-` files).
+    pub fn iter_ids(&self) -> Vec<Hash> {
+        let mut out = Vec::new();
+        let Ok(shards) = fs::read_dir(&self.objects_dir) else {
+            return out;
+        };
+        for shard in shards.flatten() {
+            if !shard.path().is_dir() {
+                continue;
+            }
+            let shard_name = shard.file_name().to_string_lossy().into_owned();
+            let Ok(rest) = fs::read_dir(shard.path()) else {
+                continue;
+            };
+            for ent in rest.flatten() {
+                let fname = ent.file_name().to_string_lossy().into_owned();
+                if fname.starts_with(".tmp-") {
+                    continue;
+                }
+                if let Ok(h) = Hash::from_base32(&format!("{shard_name}{fname}")) {
+                    out.push(h);
+                }
+            }
+        }
+        out
+    }
+
     /// Read an object by id, verifying its type and content address.
     pub fn read<T: Object>(&self, id: &Hash) -> Result<T> {
         let path = self.path_for(id);
@@ -161,6 +228,34 @@ mod tests {
         assert!(matches!(
             s.read::<Tree>(&id).unwrap_err(),
             Error::TypeMismatch { .. }
+        ));
+    }
+
+    #[test]
+    fn raw_transfer_roundtrips_and_enumerates() {
+        let (_d, src) = store();
+        let id = src.write(&Blob::new(b"sync me".to_vec())).unwrap();
+        let frame = src.read_raw(&id).unwrap();
+
+        let dst_dir = tempfile::tempdir().unwrap();
+        let dst = ObjectStore::init(dst_dir.path()).unwrap();
+        dst.write_raw(&id, &frame).unwrap();
+        assert_eq!(dst.read::<Blob>(&id).unwrap().content, b"sync me");
+
+        let ids = dst.iter_ids();
+        assert_eq!(ids, vec![id]);
+        // Idempotent re-write is fine.
+        dst.write_raw(&id, &frame).unwrap();
+    }
+
+    #[test]
+    fn write_raw_rejects_wrong_address() {
+        let (_d, s) = store();
+        let frame = wire::encode(crate::object::ObjectType::Blob, b"real").unwrap();
+        let wrong = Hash::of(b"not-the-body");
+        assert!(matches!(
+            s.write_raw(&wrong, &frame).unwrap_err(),
+            Error::HashMismatch { .. }
         ));
     }
 

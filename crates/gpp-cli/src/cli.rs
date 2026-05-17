@@ -87,6 +87,62 @@ pub enum Command {
     Anomaly(AnomalyArgs),
     /// Cross-layer audit report
     Audit(AuditArgs),
+    /// Peer-to-peer synchronization
+    Sync(SyncArgs),
+    /// Reproduce a changeset's environment
+    Replay(ReplayArgs),
+    /// Merge a divergent fork branch into the current branch
+    Merge(MergeArgs),
+}
+
+#[derive(Args)]
+pub struct SyncArgs {
+    #[command(subcommand)]
+    pub action: Option<SyncSub>,
+    /// Sync only the Graphex layer (no code objects)
+    #[arg(long, global = true)]
+    pub graph_only: bool,
+    /// Also sync the Graphex index
+    #[arg(long, global = true)]
+    pub include_graphex: bool,
+}
+
+#[derive(Subcommand)]
+pub enum SyncSub {
+    /// Register a peer
+    Add { name: String, address: String },
+    /// Remove a peer
+    Remove { name: String },
+    /// Show configured peers
+    Status,
+    /// Accept inbound syncs on an address (Ctrl-C to stop)
+    Serve { address: String },
+    /// Sync with one peer (default: all configured peers)
+    Peer { name: String },
+}
+
+#[derive(Args)]
+pub struct ReplayArgs {
+    /// Changeset to reproduce (HEAD, a branch, or a hash)
+    pub changeset: String,
+    /// Compare a reproduced dir to the snapshot instead of writing
+    #[arg(long)]
+    pub diff: bool,
+    /// Show what would be reproduced without writing
+    #[arg(long)]
+    pub dry_run: bool,
+    /// Directory to materialize into
+    #[arg(long, default_value = "replay-out")]
+    pub output: std::path::PathBuf,
+    /// Capture/override an env var (key=value, repeatable)
+    #[arg(long = "env", value_name = "K=V")]
+    pub env: Vec<String>,
+}
+
+#[derive(Args)]
+pub struct MergeArgs {
+    /// The fork ref to merge (e.g. "main.fork.office")
+    pub fork_ref: String,
 }
 
 #[derive(Args)]
@@ -323,6 +379,26 @@ pub enum GraphexAction {
     },
     /// Auto-infer proposed module nodes from the HEAD changeset
     Infer,
+    /// Manage cross-project subgraph federation
+    Federation {
+        #[command(subcommand)]
+        action: FederationAction,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum FederationAction {
+    /// Register a federated source (peer project subgraph)
+    Add {
+        #[arg(long)]
+        project: String,
+        #[arg(long)]
+        address: String,
+        #[arg(long, default_value = "default")]
+        subgraph: String,
+    },
+    /// List federated sources
+    List,
 }
 
 #[derive(Args)]

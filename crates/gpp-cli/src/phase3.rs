@@ -11,7 +11,9 @@ use gpp_graphex::{
 };
 use gpp_history::{Author, RefStore};
 
-use crate::cli::{GraphexAction, GraphexArgs, KeysAction, KeysArgs, McpServerArgs};
+use crate::cli::{
+    FederationAction, GraphexAction, GraphexArgs, KeysAction, KeysArgs, McpServerArgs,
+};
 use crate::config;
 use crate::phase1::parse_time;
 use crate::repo::Repo;
@@ -389,6 +391,37 @@ pub fn graphex(args: &GraphexArgs, repo_override: Option<&Path>, json: bool) -> 
             }
             println!("\nReview with `gpp graphex pending`.");
             Ok(())
+        }
+
+        GraphexAction::Federation { action } => {
+            let fed_dir = repo.gpp_dir().join("graphex").join("federation");
+            std::fs::create_dir_all(&fed_dir)?;
+            let sources = fed_dir.join("sources.toml");
+            match action {
+                FederationAction::Add {
+                    project,
+                    address,
+                    subgraph,
+                } => {
+                    let mut body = std::fs::read_to_string(&sources).unwrap_or_default();
+                    body.push_str(&format!(
+                        "[[source]]\nproject = {project:?}\naddress = {address:?}\nsubgraph = {subgraph:?}\n\n"
+                    ));
+                    std::fs::write(&sources, body)?;
+                    println!(
+                        "federated source added: {project} ({subgraph}) @ {address}\n\
+                         pull it with `gpp sync --graph-only` once added as a peer"
+                    );
+                    Ok(())
+                }
+                FederationAction::List => {
+                    match std::fs::read_to_string(&sources) {
+                        Ok(b) if !b.trim().is_empty() => print!("{b}"),
+                        _ => println!("(no federated sources)"),
+                    }
+                    Ok(())
+                }
+            }
         }
     }
 }

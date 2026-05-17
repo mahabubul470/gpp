@@ -4,6 +4,14 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "gpp-replay (stub — not yet implemented; see docs/ROADMAP.md)"
+description = "gpp reproducible agent environment snapshots"
 
 [dependencies]
+gpp-core = { path = "../gpp-core" }
+gpp-history = { path = "../gpp-history" }
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
