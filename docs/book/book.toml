@@ -1,0 +1,9 @@
+[book]
+title = "gpp (git++) — User Guide"
+authors = ["gpp contributors"]
+language = "en"
+src = "src"
+
+[output.html]
+default-theme = "ayu"
+git-repository-url = "https://github.com/gpp-vcs/gpp"

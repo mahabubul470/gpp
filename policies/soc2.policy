@@ -1,0 +1,17 @@
+name = "soc2"
+description = "SOC 2 change-management guards"
+
+[[rule]]
+id = "no-direct-prod-config"
+kind = "changeset"
+severity = "block"
+message = "Production config changes must be reviewed by a human"
+require_human_review = true
+files = ["**/prod/**", "**/production/**"]
+
+[[rule]]
+id = "large-changeset-warning"
+kind = "changeset"
+severity = "warn"
+message = "Unusually large changeset"
+max_files = 50

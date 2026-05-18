@@ -105,6 +105,35 @@ pub enum Command {
     Remote(RemoteArgs),
     /// Manage relay node connections (client-side)
     Relay(RelayArgs),
+    /// Launch the interactive terminal UI
+    Ui(UiArgs),
+    /// Dependency intelligence from lockfiles
+    Deps(DepsArgs),
+}
+
+#[derive(Args)]
+pub struct UiArgs {
+    /// Open with a panel focused: timeline|history|graphex|agents|reviews|anomalies|cost|inbox
+    #[arg(long)]
+    pub panel: Option<String>,
+    /// Layout preset: default|minimal|review|monitoring
+    #[arg(long, default_value = "default")]
+    pub layout: String,
+    /// Disable live timeline updates
+    #[arg(long)]
+    pub no_live: bool,
+}
+
+#[derive(Args)]
+pub struct DepsArgs {
+    /// Lockfile to analyze (default: auto-detect Cargo.lock / package-lock.json)
+    pub lockfile: Option<PathBuf>,
+    /// Only show dependencies at or above this risk (0-100)
+    #[arg(long, default_value_t = 0)]
+    pub min_risk: u8,
+    /// Compare against this older lockfile and show only newly-added deps
+    #[arg(long)]
+    pub since: Option<PathBuf>,
 }
 
 #[derive(Args)]

@@ -1,0 +1,27 @@
+name: Feature request
+description: Propose an enhancement.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What can't you do today?
+    validations: { required: true }
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+  - type: dropdown
+    id: layer
+    attributes:
+      label: Layer
+      options:
+        - storage/timeline/history
+        - graphex
+        - trust/policy/cost/anomaly
+        - sync/relay/replay
+        - review/rbac/notify
+        - remote/ci
+        - tui/editors/sdk
+        - docs

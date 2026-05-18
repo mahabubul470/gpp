@@ -1,0 +1,32 @@
+{
+  "name": "vscode-gpp",
+  "displayName": "gpp (git++)",
+  "description": "Timeline, Graphex, semantic diff and review for gpp inside VS Code.",
+  "version": "0.1.0",
+  "publisher": "gpp-vcs",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["SCM Providers", "Other"],
+  "activationEvents": ["workspaceContains:.gpp"],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        { "id": "gpp", "title": "gpp", "icon": "media/gpp.svg" }
+      ]
+    },
+    "views": {
+      "gpp": [
+        { "id": "gpp.timeline", "name": "Timeline" },
+        { "id": "gpp.graphex", "name": "Graphex" },
+        { "id": "gpp.reviews", "name": "Reviews" }
+      ]
+    },
+    "commands": [
+      { "command": "gpp.promote", "title": "gpp: Promote changeset" },
+      { "command": "gpp.diffSemantic", "title": "gpp: Semantic diff (HEAD)" },
+      { "command": "gpp.refresh", "title": "gpp: Refresh panels" }
+    ]
+  },
+  "scripts": { "compile": "tsc -p ./" },
+  "devDependencies": { "typescript": "^5.4.0", "@types/vscode": "^1.85.0", "@types/node": "^20" }
+}

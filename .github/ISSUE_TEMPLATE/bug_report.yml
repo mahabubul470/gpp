@@ -1,0 +1,39 @@
+name: Bug report
+description: Something in gpp behaved incorrectly.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: Include the exact `gpp` command and the output.
+    validations: { required: true }
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations: { required: true }
+  - type: input
+    id: version
+    attributes:
+      label: gpp version
+      description: Output of `gpp --version`
+    validations: { required: true }
+  - type: dropdown
+    id: layer
+    attributes:
+      label: Affected layer
+      options:
+        - timeline/history
+        - graphex/keys
+        - trust/policy/cost/anomaly
+        - sync/relay/replay
+        - review/rbac/notify
+        - remote/git-bridge
+        - cli/tui
+        - other
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: Steps from `gpp init` onward, ideally on a fresh repo.

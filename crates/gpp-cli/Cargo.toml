@@ -28,6 +28,8 @@ gpp-rbac = { path = "../gpp-rbac" }
 gpp-review = { path = "../gpp-review" }
 gpp-notify = { path = "../gpp-notify" }
 gpp-remote = { path = "../gpp-remote" }
+gpp-tui = { path = "../gpp-tui" }
+gpp-deps = { path = "../gpp-deps" }
 globset.workspace = true
 clap.workspace = true
 anyhow.workspace = true

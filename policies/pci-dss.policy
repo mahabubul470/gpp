@@ -1,0 +1,18 @@
+name = "pci-dss"
+description = "PCI-DSS guards: PANs in source, review on payment code"
+
+[[rule]]
+id = "primary-account-number"
+kind = "pattern"
+severity = "block"
+message = "Possible card PAN (13-16 digits) in source"
+pattern = "\\b(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|3[47][0-9]{13})\\b"
+
+[[rule]]
+id = "payment-code-needs-human-review"
+kind = "changeset"
+severity = "block"
+message = "Changes under payment paths require human review"
+require_human_review = true
+forbidden_paths = []
+files = ["**/payment*/**", "**/billing*/**"]

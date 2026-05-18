@@ -4,6 +4,13 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "gpp-deps (stub — not yet implemented; see docs/ROADMAP.md)"
+description = "gpp dependency intelligence (lockfile + risk)"
 
 [dependencies]
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
