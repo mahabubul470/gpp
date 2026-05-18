@@ -16,21 +16,39 @@ Legend: **P0** = correctness/hardening before any real adoption ·
 ## P0 — Hardening before real-world use
 
 These are not new features; they are gaps between "milestone met" and
-"safe to depend on".
+"safe to depend on". Ordered: a silent runtime gap that *misleads* a
+user about protection outranks an internal quality gap; small high-risk
+fixes outrank large infra efforts; measurement precedes the work it gates.
 
-- [ ] **Test depth pass.** Bring smoke-only crates up to the core-crate
-  bar. Add a `tests/` integration dir per crate exercising the real
-  store/db path (not just inline unit tests). Priority order by current
-  thinness: `gpp-sdk` (1), `gpp-notify` / `gpp-rbac` / `gpp-replay` /
-  `gpp-tui` (2 each), `gpp-trust` / `gpp-sync` / `gpp-cost` (3 each).
-  Target: each core crate ≥ 80%, integration crates ≥ 60% (the
-  `CLAUDE.md` coverage target — currently unmeasured).
-- [ ] **Add coverage measurement to CI** (`cargo llvm-cov`) so the
-  target above is enforced, not aspirational.
-- [ ] **End-to-end integration tests** under `tests/integration/`:
+**▶ Next:** P0.1 (policy enforcement) — it's the only item where the
+current behavior is actively wrong, not just thin.
+
+- [ ] **P0.1 — Policy enforcement points beyond promote** (Phase 4
+  deviation). Wire the existing `PolicySet` API into timeline-capture
+  (warn) and sync (block). *Highest risk:* a policy configured to block
+  on sync silently does nothing today, so a user who set it up believes
+  they're protected when they aren't. API is ready; this is wiring +
+  tests. Small.
+- [ ] **P0.2 — Relay pre-handshake key rejection** (Phase 7 deviation).
+  `--auth-keys` is advisory only; add the `gpp-sync` hook to reject
+  unknown static keys before the Noise handshake completes. Security
+  gap, but bounded — the relay is zero-knowledge and TOFU-pinned, so an
+  unknown peer still can't read content. Small.
+- [ ] **P0.3 — Add coverage measurement to CI** (`cargo llvm-cov`).
+  Cheap, and it makes P0.4's target objective instead of aspirational —
+  do it before, not after, the depth pass so the work is data-driven.
+- [ ] **P0.4 — Test depth pass.** Bring smoke-only crates up to the
+  core-crate bar. Add a `tests/` integration dir per crate exercising
+  the real store/db path (not just inline unit tests). Priority order by
+  current thinness: `gpp-sdk` (1), `gpp-notify` / `gpp-rbac` /
+  `gpp-replay` / `gpp-tui` (2 each), `gpp-trust` / `gpp-sync` /
+  `gpp-cost` (3 each). Target: each core crate ≥ 80%, integration crates
+  ≥ 60% (the `CLAUDE.md` target). Large, ongoing; gated by P0.3.
+- [ ] **P0.5 — End-to-end integration tests** under `tests/integration/`:
   two-peer sync round-trip, git-import→promote→git-export fidelity,
   promote→review→merge gate, MCP query→propose→accept. The crate-level
   suites are all isolated; nothing currently tests the layers together.
+  Largest; benefits from the per-crate depth (P0.4) landing first.
 - [x] **Passphrase-wrapped master key** (Phase 3 deviation). Done
   2026-05-18 (`gpp-graphex`): `$GPP_GRAPHEX_PASSPHRASE` (or
   `KeyStore::{generate,open}_with`) scrypt-wraps `master.age` at rest and
@@ -39,17 +57,25 @@ These are not new features; they are gaps between "milestone met" and
   working (auto-detected). `gpp keys show/generate` report the mode.
   Tests: crypto passphrase round-trip + wrong-pass, keys
   passphrase-store round-trip, human-only-not-master-readable.
-- [ ] **Relay pre-handshake key rejection** (Phase 7 deviation).
-  `--auth-keys` is advisory only; add the `gpp-sync` hook to reject
-  unknown static keys before the Noise handshake completes.
-- [ ] **Policy enforcement points beyond promote** (Phase 4 deviation).
-  Wire the existing `PolicySet` API into timeline-capture (warn) and
-  sync (block) — the API is ready, the attach points are not.
 
 ## P1 — Deferred roadmap features
 
-Promised in the roadmap, scaffolded, not yet wired to live I/O.
+Promised in the roadmap, scaffolded, not yet wired to live I/O. Loosely
+tiered (not strictly ordered — none is picked until P0 clears):
+**(a) make a placeholder layer real:** real token/cost capture →
+per-path cost attribution (the latter is pointless until the former,
+so they're listed in that order). **(b) adoption leverage:**
+bidirectional platform sync, then live dependency intelligence.
+**(c) polish:** everything after.
 
+- [ ] **Real token/cost capture.** Cost records are created at
+  promote-time with tokens/cost = 0 until a Tier-3 SDK reports usage.
+  Wire actual agent usage reporting through the SDK. *Blocks per-path
+  attribution below — until this lands, the cost layer is structurally
+  complete but numerically empty.*
+- [ ] **Per-path cost attribution** (Phase 4 deviation). Cost is
+  repo-wide today; attribute to changed paths. Depends on real token
+  capture above (attributing zeros per path is meaningless).
 - [~] **Live dependency intelligence** (`gpp-deps`). Offline lockfile +
   heuristic risk works; add live crates.io / npm / OSV (CVE) / license
   APIs behind an opt-in network flag with response caching.
@@ -62,12 +88,6 @@ Promised in the roadmap, scaffolded, not yet wired to live I/O.
   the build tooling to ship them.
 - [~] **Federation hardening** (Phase 5). Config + graph-only sync work;
   add publish-filter globs and one-way federated read-only enforcement.
-- [ ] **Per-path cost attribution** (Phase 4 deviation). Cost is
-  repo-wide today; attribute to changed paths now that the review layer
-  exists.
-- [ ] **Real token/cost capture.** Cost records are created at
-  promote-time with tokens/cost = 0 until a Tier-3 SDK reports usage.
-  Wire actual agent usage reporting through the SDK.
 - [ ] **Graphex semantic reviewer assignment** (Phase 6 deviation). The
   `owned-by` edge exists; make it the primary reviewer-suggestion source
   instead of RBAC owners/maintainers only.
@@ -106,8 +126,10 @@ aren't lost.
 
 ## How to use this doc
 
-- Pick the next item from the **highest** open priority band.
-- When starting an item, move it to a `[~]` and note the crate(s).
+- Take the lowest-numbered open item in the highest open band (the
+  **▶ Next** callout names it for P0); P1 is tiered, not strict.
+- When starting an item, move it to a `[~]` and note the crate(s). Keep
+  the **▶ Next** pointer current when a P0 item lands.
 - When an item lands, check it off here **and** update the matching
   ROADMAP deviation note so the two stay in sync.
 - New deferrals discovered mid-work go in the band that matches their
