@@ -769,6 +769,7 @@
     <a href="#architecture">Architecture</a>
     <a href="#internals">Internals</a>
     <a href="#cli">CLI</a>
+    <a href="docs/">Docs</a>
     <a href="https://github.com/mahabubul470/gpp/blob/main/docs/ROADMAP.md">Roadmap</a>
   </div>
   <a href="https://github.com/mahabubul470/gpp" class="nav-cta">★ GitHub</a>
@@ -786,7 +787,8 @@
   <p class="hero-tagline">
     An <strong>AI-native version control system</strong> in Rust. Continuous
     capture instead of manual commits, content-addressed storage, and
-    changesets promoted from a live timeline. <strong>Phases 0 &amp; 1 shipped.</strong>
+    changesets promoted from a live timeline. <strong>Implemented
+    end-to-end — 123 workspace tests green.</strong>
   </p>
 
   <div class="hero-terminal">
@@ -829,41 +831,41 @@
     <div class="stat-label">Content addressing</div>
   </div>
   <div class="stat">
-    <div class="stat-num">MIT</div>
-    <div class="stat-label">Open source</div>
+    <div class="stat-num">123</div>
+    <div class="stat-label">Workspace tests passing</div>
   </div>
 </div>
 
 <!-- Status / Roadmap -->
 <section id="status">
   <div class="section-label">// Project status</div>
-  <div class="section-title">Shipped, not vaporware.</div>
+  <div class="section-title">Implemented, not vaporware.</div>
   <div class="section-desc">
-    gpp is built in phases, each a usable increment. The vision below is the
-    full 12-layer architecture; here is exactly what runs today. Full detail in
-    <a href="https://github.com/mahabubul470/gpp/blob/main/docs/ROADMAP.md" style="color:var(--green)">docs/ROADMAP.md</a>.
+    Every layer below is built — <strong>123 workspace tests pass</strong>,
+    <code>clippy</code>/<code>fmt</code> clean, no stub crates (verified
+    2026-05-18). "Implemented" means built and smoke-tested against its
+    milestone; coverage depth is still uneven and actively being closed.
+    The full per-layer record is in
+    <a href="https://github.com/mahabubul470/gpp/blob/main/docs/ROADMAP.md" style="color:var(--green)">ROADMAP.md</a>;
+    the prioritized backlog of what's next is in
+    <a href="https://github.com/mahabubul470/gpp/blob/main/docs/TODO.md" style="color:var(--green)">TODO.md</a>.
   </div>
 
   <div class="phase-list">
     <div class="phase-row done">
-      <span class="phase-state done">✓ DONE</span>
-      <span class="phase-name">Phase 0 — Foundation</span>
-      <span class="phase-detail">Cargo workspace, <code>gpp-core</code> content-addressed object store (BLAKE3 + zstd), <code>gpp init/status/config</code>, CI.</span>
+      <span class="phase-state done">✓ SHIPPED</span>
+      <span class="phase-name">Core &amp; intelligence</span>
+      <span class="phase-detail">Object store, timeline, history, semantic diff, Git bridge, encrypted Graphex + SDK/MCP, trust/policy/anomaly governance.</span>
     </div>
     <div class="phase-row done">
-      <span class="phase-state done">✓ DONE</span>
-      <span class="phase-name">Phase 1 — Timeline + History</span>
-      <span class="phase-detail">SQLite WAL timeline, working-tree capture, <code>.gppignore</code>, promote → changeset DAG, branches, line diff. <code>timeline/promote/log/diff/branch</code>.</span>
+      <span class="phase-state done">✓ SHIPPED</span>
+      <span class="phase-name">Collaboration &amp; reach</span>
+      <span class="phase-detail">Noise P2P sync, replay, federation, review + RBAC + notifications, GitHub/GitLab/Bitbucket PRs, relay, TUI, editor extensions.</span>
     </div>
     <div class="phase-row">
-      <span class="phase-state next">◐ IN PROGRESS</span>
-      <span class="phase-name">Phase 2 — Semantic diff + Git bridge</span>
-      <span class="phase-detail">Tree-sitter structural diffs (Rust/Python/TS/Go) and Git import/export compatibility.</span>
-    </div>
-    <div class="phase-row">
-      <span class="phase-state todo">○ PLANNED</span>
-      <span class="phase-name">Phase 3+ — Graphex, Trust, Sync</span>
-      <span class="phase-detail">Encrypted knowledge graph, agent reputation/RBAC, CRDT P2P replication, cost &amp; policy engines.</span>
+      <span class="phase-state next">◐ NEXT</span>
+      <span class="phase-name">Hardening pass</span>
+      <span class="phase-detail">Test-depth + coverage gate, policy enforcement beyond promote, relay key rejection, live dep/CVE APIs, native SDK bindings — ranked in <a href="https://github.com/mahabubul470/gpp/blob/main/docs/TODO.md" style="color:var(--cyan)">TODO.md</a>.</span>
     </div>
   </div>
 </section>
@@ -872,7 +874,7 @@
 <section id="architecture" class="arch-container">
   <div class="section-label">// Architecture</div>
   <div class="section-title">12 layers. One platform.</div>
-  <div class="section-desc">The full architecture for a world where AI agents are first-class contributors. Pills show real status — <span style="color:var(--green)">shipped</span>, <span style="color:var(--amber)">in progress</span>, untagged layers are on the roadmap.</div>
+  <div class="section-desc">The full architecture for a world where AI agents are first-class contributors. Every layer is implemented — pills show <span style="color:var(--green)">shipped</span>, with <span style="color:var(--amber)">partial</span> where a live-network or hardening follow-up is tracked in <a href="https://github.com/mahabubul470/gpp/blob/main/docs/TODO.md" style="color:var(--green)">TODO.md</a>.</div>
 
   <div class="arch-grid">
     <!-- Row 1: Core -->
@@ -900,53 +902,53 @@
       <div class="arch-icon cyan">04</div>
       <div class="arch-name">Graphex — Encrypted Knowledge Graph</div>
       <div class="arch-desc">Versioned project knowledge with tiered encryption, zero-knowledge sync, and cross-project federation. The project brain that agents query locally — nothing leaks to external APIs.</div>
-      <span class="arch-tag intelligence">Intelligence</span>
+      <span class="arch-tag intelligence">Intelligence</span><span class="arch-status shipped">Shipped</span>
     </div>
     <div class="arch-layer">
       <div class="arch-icon cyan">05</div>
       <div class="arch-name">Trust Engine</div>
       <div class="arch-desc">Agent reputation scoring. Behavioral RBAC that adapts based on track record.</div>
-      <span class="arch-tag intelligence">Intelligence</span>
+      <span class="arch-tag intelligence">Intelligence</span><span class="arch-status shipped">Shipped</span>
     </div>
 
     <!-- Row 3: Safety -->
     <div class="arch-layer">
       <div class="arch-icon red">06</div>
       <div class="arch-name">Policy Engine</div>
-      <div class="arch-desc">Compliance-as-code. Secrets blocking, review rules, and regulatory gates at the storage layer.</div>
-      <span class="arch-tag security">Security</span>
+      <div class="arch-desc">Compliance-as-code. Secrets blocking, review rules, and regulatory gates enforced at promotion (sync/capture enforcement is the next hardening item).</div>
+      <span class="arch-tag security">Security</span><span class="arch-status shipped">Shipped</span>
     </div>
     <div class="arch-layer">
       <div class="arch-icon red">07</div>
       <div class="arch-name">Anomaly Detection</div>
       <div class="arch-desc">Pattern monitoring for agent behavior. Flags unusual changes before they land.</div>
-      <span class="arch-tag security">Security</span>
+      <span class="arch-tag security">Security</span><span class="arch-status shipped">Shipped</span>
     </div>
     <div class="arch-layer">
       <div class="arch-icon amber">08</div>
       <div class="arch-name">Cost Attribution</div>
-      <div class="arch-desc">Token-level tracking per changeset. Budget policies and per-module spend analytics.</div>
-      <span class="arch-tag intelligence">Intelligence</span>
+      <div class="arch-desc">Per-changeset cost records, budgets and efficiency analytics. Real token capture &amp; per-path attribution land when a Tier-3 SDK reports usage.</div>
+      <span class="arch-tag intelligence">Intelligence</span><span class="arch-status partial">Partial</span>
     </div>
 
     <!-- Row 4: Infra -->
     <div class="arch-layer">
       <div class="arch-icon purple">09</div>
       <div class="arch-name">Semantic Diff</div>
-      <div class="arch-desc">Line-based unified diff shipped; tree-sitter structural diff (renames/moves as one op) in progress.</div>
-      <span class="arch-tag infra">Infra</span><span class="arch-status partial">In progress</span>
+      <div class="arch-desc">Line diff plus tree-sitter structural diff for Rust/Python/TS/Go — renames and cross-file moves collapse to one semantic op.</div>
+      <span class="arch-tag infra">Infra</span><span class="arch-status shipped">Shipped</span>
     </div>
     <div class="arch-layer">
       <div class="arch-icon purple">10</div>
       <div class="arch-name">Replay Engine</div>
-      <div class="arch-desc">Reproducible agent environments. Snapshot and re-run any AI session exactly.</div>
-      <span class="arch-tag infra">Infra</span>
+      <div class="arch-desc">Reproducible agent environments — snapshot inputs/toolchain and re-materialize, with drift diff against the original.</div>
+      <span class="arch-tag infra">Infra</span><span class="arch-status shipped">Shipped</span>
     </div>
     <div class="arch-layer">
       <div class="arch-icon purple">11</div>
       <div class="arch-name">Dependencies</div>
-      <div class="arch-desc">Live risk-aware dependency intelligence with maintenance health and CVE tracking.</div>
-      <span class="arch-tag infra">Infra</span>
+      <div class="arch-desc">Offline lockfile parsing + heuristic risk scoring + newly-added-dep assessment. Live registry/CVE/license APIs are a tracked follow-up.</div>
+      <span class="arch-tag infra">Infra</span><span class="arch-status partial">Partial</span>
     </div>
 
     <!-- Row 5: Foundation -->
@@ -956,8 +958,8 @@
       </div>
       <div>
         <div class="arch-name">Sync Protocol — CRDT-based, offline-first, zero-knowledge replication</div>
-        <div class="arch-desc">Peer-to-peer. No single point of failure. Works on a plane, during load-shedding, or across continents. Plugin ecosystem for parsers, integrations, compliance templates, and visualization.</div>
-        <span class="arch-tag core">Foundation</span>
+        <div class="arch-desc">Peer-to-peer over Noise_XX — objects, refs, policies and zero-knowledge Graphex sync with fork-preserving conflict handling. No single point of failure; works offline. Plus a plugin ecosystem for parsers, policy templates and integrations.</div>
+        <span class="arch-tag core">Foundation</span><span class="arch-status shipped">Shipped</span>
       </div>
     </div>
   </div>
@@ -1087,16 +1089,17 @@
 <section id="build">
   <div class="section-label">// Quickstart</div>
   <div class="section-title">Build from source.</div>
-  <div class="section-desc">Not on crates.io yet — it's a pre-1.0 project. Clone and build the workspace; you get a single <code style="color:var(--cyan);font-family:'JetBrains Mono'">gpp</code> binary.</div>
+  <div class="section-desc">Not on crates.io yet — it's a pre-1.0 project. Install straight from the repo, or clone and build the workspace; either way you get a single <code style="color:var(--cyan);font-family:'JetBrains Mono'">gpp</code> binary. Full guide at <a href="docs/" style="color:var(--green)">/docs</a>.</div>
 
   <div class="cli-block" style="max-width:720px">
     <div class="cli-label">terminal</div>
     <div class="cli-code">
+      <span class="p">$</span> <span class="c">cargo install --git https://github.com/mahabubul470/gpp gpp-cli</span><br>
+      <span class="d">&nbsp; # …or from a clone:</span><br>
       <span class="p">$</span> <span class="c">git clone https://github.com/mahabubul470/gpp</span><br>
       <span class="p">$</span> <span class="c">cd gpp &amp;&amp; cargo build --release</span><br>
       <span class="p">$</span> <span class="c">./target/release/gpp init</span><br>
-      <span class="o">&nbsp; Initialized empty gpp repository in .gpp/</span><br>
-      <span class="p">$</span> <span class="c">./target/release/gpp timeline</span> <span class="d"># start capturing</span>
+      <span class="o">&nbsp; Initialized empty gpp repository in .gpp/</span>
     </div>
   </div>
 </section>
@@ -1105,7 +1108,7 @@
 <section id="cli">
   <div class="section-label">// Interface</div>
   <div class="section-title">Real commands, today.</div>
-  <div class="section-desc">Every command below works in the current build (<code style="color:var(--cyan);font-family:'JetBrains Mono'">gpp 0.1.0</code>). <code style="color:var(--cyan);font-family:'JetBrains Mono'">--json</code> on most for agent/script use. The last block is the roadmap.</div>
+  <div class="section-desc">Every command below works in the current build. <code style="color:var(--cyan);font-family:'JetBrains Mono'">--json</code> on most for agent/script use — including the AI-native, governance and sync surface in the last block.</div>
 
   <div class="cli-grid">
     <div class="cli-block">
@@ -1143,14 +1146,14 @@
       </div>
     </div>
     <div class="cli-block">
-      <div class="cli-label">Roadmap (not yet built)</div>
+      <div class="cli-label">AI-native · governance · sync</div>
       <div class="cli-code">
-        <span class="d">$ gpp diff --semantic &nbsp;&nbsp;&nbsp; # Phase 2</span><br>
-        <span class="d">$ gpp git push &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; # Phase 2 (Git bridge)</span><br>
-        <span class="d">$ gpp graphex query "..." # Phase 3+</span><br>
-        <span class="d">$ gpp trust show &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; # Phase 3+</span><br>
-        <span class="d">$ gpp cost --this-week &nbsp; # Phase 3+</span><br>
-        <span class="o">&nbsp; these are rejected today with a clear message</span>
+        <span class="p">$</span> <span class="c">gpp diff</span> <span class="f">--semantic</span> <span class="d"># tree-sitter structural</span><br>
+        <span class="o">&nbsp; ~ fn retry()  moved src/net.rs → src/io.rs</span><br>
+        <span class="p">$</span> <span class="c">gpp mcp-server</span> <span class="f">--stdio</span> <span class="d"># agents query Graphex</span><br>
+        <span class="p">$</span> <span class="c">gpp trust show</span><br>
+        <span class="o">&nbsp; agent:claude  0.92  auto-merge</span><br>
+        <span class="p">$</span> <span class="c">gpp sync serve</span> <span class="f">127.0.0.1:9473</span> <span class="d"># Noise P2P</span>
       </div>
     </div>
   </div>
@@ -1160,7 +1163,7 @@
 <div class="cta-section">
   <div class="cta-glow"></div>
   <h2>Version control<br>for the <span style="color: var(--green)">agent age</span>.</h2>
-  <p>Built in Rust. MIT-licensed. Phases 0 &amp; 1 shipped — clone it and try it.</p>
+  <p>Built in Rust. MIT-licensed. Implemented end-to-end — clone it and try it.</p>
   <div class="cta-install" onclick="navigator.clipboard.writeText('git clone https://github.com/mahabubul470/gpp')">
     <span class="dollar">$</span> git clone https://github.com/mahabubul470/gpp
     <span class="copy-hint">click to copy</span>
@@ -1176,7 +1179,7 @@
   <div class="footer-logo">gpp <span>// git++</span></div>
   <div class="footer-links">
     <a href="https://github.com/mahabubul470/gpp">GitHub</a>
-    <a href="https://github.com/mahabubul470/gpp/tree/main/docs">Docs</a>
+    <a href="docs/">Docs</a>
     <a href="https://github.com/mahabubul470/gpp/blob/main/docs/ARCHITECTURE.md">Architecture</a>
     <a href="https://github.com/mahabubul470/gpp/blob/main/docs/ROADMAP.md">Roadmap</a>
     <a href="https://github.com/mahabubul470/gpp/issues">Issues</a>

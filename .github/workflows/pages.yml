@@ -1,10 +1,11 @@
-name: Deploy landing page
+name: Deploy landing page + docs
 
 on:
   push:
     branches: [main]
     paths:
       - "site/**"
+      - "docs/book/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -31,7 +32,15 @@ jobs:
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
-      - name: Upload site/ as Pages artifact
+      - name: Install mdBook
+        uses: peaceiris/actions-mdbook@v2
+        with:
+          mdbook-version: latest
+
+      - name: Build user guide into site/docs
+        run: mdbook build docs/book --dest-dir "$GITHUB_WORKSPACE/site/docs"
+
+      - name: Upload site/ (landing page + docs) as Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: site

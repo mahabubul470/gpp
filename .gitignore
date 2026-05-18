@@ -7,3 +7,7 @@
 
 # Provided source bundle (docs already unpacked into docs/)
 /files.zip
+
+# Generated mdBook output (built into the Pages artifact by CI, never committed)
+/site/docs/
+/docs/book/book/

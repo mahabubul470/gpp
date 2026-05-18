@@ -6,4 +6,4 @@ src = "src"
 
 [output.html]
 default-theme = "ayu"
-git-repository-url = "https://github.com/gpp-vcs/gpp"
+git-repository-url = "https://github.com/mahabubul470/gpp"
