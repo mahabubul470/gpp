@@ -10,9 +10,22 @@ full specification (architecture, data model, CLI, protocols, roadmap), and
 
 ## Status
 
-**All 9 phases (0–8) complete.** See [`docs/ROADMAP.md`](docs/ROADMAP.md)
-for the per-phase deliverables and documented deviations. 123 workspace
-tests pass; `cargo clippy` / `cargo fmt` clean. No stub crates remain.
+**All 9 phases (0–8) implemented.** See [`docs/ROADMAP.md`](docs/ROADMAP.md)
+for the per-phase deliverables and documented deviations, and
+[`docs/TODO.md`](docs/TODO.md) for the prioritized backlog of what's next.
+
+Verified 2026-05-18: **123 workspace tests pass**, `cargo clippy` and
+`cargo fmt` clean, full workspace builds. No stub crates remain — every
+crate has a working implementation.
+
+The test suite is currently all in-crate unit tests (no `tests/`
+integration dirs yet) and its depth is **uneven**: foundational layers are
+well covered (`gpp-core` 23, `gpp-graphex` 17, `gpp-diff` 13, CLI 16),
+while several integration/UI crates have only smoke-level coverage
+(`gpp-sdk` 1; `gpp-notify`/`gpp-rbac`/`gpp-replay`/`gpp-tui` 2 each).
+"Implemented" here means *built and smoke-tested against its milestone*,
+not *exhaustively tested or hardened* everywhere. Closing that gap is the
+top item in [`docs/TODO.md`](docs/TODO.md).
 
 | Layer | Crate | What's implemented |
 |---|---|---|

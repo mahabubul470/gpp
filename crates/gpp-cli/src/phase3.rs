@@ -64,6 +64,19 @@ pub fn keys(args: &KeysArgs, repo_override: Option<&Path>) -> Result<()> {
                     .collect::<Vec<_>>()
                     .join(", ")
             );
+            if ks.passphrase_protected() {
+                println!(
+                    "  master key: passphrase-wrapped; human-only tier is \
+                     passphrase-gated (keep ${} safe — it cannot be recovered)",
+                    gpp_graphex::PASSPHRASE_ENV
+                );
+            } else {
+                println!(
+                    "  master key: stored unwrapped (set ${} before generate \
+                     to passphrase-protect at rest)",
+                    gpp_graphex::PASSPHRASE_ENV
+                );
+            }
             Ok(())
         }
         KeysAction::Rotate => {
@@ -76,18 +89,24 @@ pub fn keys(args: &KeysArgs, repo_override: Option<&Path>) -> Result<()> {
             if !KeyStore::exists(&gpp) {
                 bail!("no key store — run `gpp keys generate`");
             }
+            let protected = KeyStore::is_passphrase_protected(&gpp);
             let ks = KeyStore::open(&gpp)?;
             println!("master recipient: {}", ks.master_recipient());
+            println!(
+                "master key:       {}",
+                if protected {
+                    "passphrase-wrapped"
+                } else {
+                    "unwrapped (set $GPP_GRAPHEX_PASSPHRASE to protect)"
+                }
+            );
             for t in ks.present_tiers() {
-                println!(
-                    "  {:<18} {}",
-                    t.as_str(),
-                    if KeyStore::is_encrypted(t) {
-                        "encrypted (master-sealed)"
-                    } else {
-                        "plaintext"
-                    }
-                );
+                let how = match (t.as_str(), protected) {
+                    ("public", _) => "plaintext",
+                    ("human-only", true) => "encrypted (passphrase-gated)",
+                    _ => "encrypted (master-sealed)",
+                };
+                println!("  {:<18} {how}", t.as_str());
             }
             Ok(())
         }

@@ -1,5 +1,12 @@
 # Roadmap — gpp (git++)
 
+> **All 9 phases (0–8) are implemented** (verified 2026-05-18: 123
+> workspace tests pass, clippy/fmt clean). This file is the historical
+> per-phase record with its deviation notes. For the **forward-looking,
+> prioritized backlog** — every `[~]` partial and deferred item below,
+> consolidated and ranked — see [`TODO.md`](TODO.md). Keep the two in
+> sync: when a TODO item lands, update its phase deviation note here.
+
 ## Implementation Phases
 
 The project is divided into 6 phases, each delivering a usable increment. Each phase has a clear "you can use it for X" milestone.
@@ -193,10 +200,14 @@ AI tools (Claude Code, Cursor, etc.) can connect via MCP, query the knowledge gr
   gpp-core wire format / `ObjectType` set. Node identity is *stable*
   (`blake3("{type}:{name}")`) so edits re-encrypt the same logical node and
   keep its edges; old blobs remain in object history.
-- `master.age` stores the X25519 identity directly and `human-only` is
-  master-sealed like other tiers — passphrase-wrapping of the master key and
-  passphrase-gated `human-only` is a later hardening pass (the tier is still
-  fully scrub-enforced in projection today).
+- ~~`master.age` stores the X25519 identity directly and `human-only` is
+  master-sealed~~ **Resolved 2026-05-18.** With `$GPP_GRAPHEX_PASSPHRASE`
+  set (or `KeyStore::{generate,open}_with`), `master.age` is scrypt-
+  passphrase-wrapped at rest and the `human-only` tier key is sealed
+  directly to the passphrase — the master identity alone can no longer
+  decrypt human-only. With no passphrase the legacy unattended behaviour is
+  unchanged (auto-detected on open), so existing repos keep working;
+  `human-only` is still scrub-enforced in projection regardless.
 - Query results are metadata-only (names/types/relations) and never decrypt
   content; decryption happens exclusively in the tier-gated projection path,
   which writes a `graph_access_log` entry (accessor, nodes, projection hash).

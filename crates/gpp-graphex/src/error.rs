@@ -22,6 +22,9 @@ pub enum Error {
     #[error("key store not initialized — run `gpp keys generate`")]
     NoKeys,
 
+    #[error("this key store is passphrase-protected — set $GPP_GRAPHEX_PASSPHRASE")]
+    PassphraseRequired,
+
     #[error("unknown access tier {0:?}")]
     UnknownTier(String),
 

@@ -89,27 +89,74 @@ pub fn age_encrypt(recipient: &str, data: &[u8]) -> Result<Vec<u8>> {
     Ok(out)
 }
 
-/// Decrypt `age` ciphertext with an X25519 identity string (`AGE-SECRET-KEY-…`).
-pub fn age_decrypt(identity: &str, data: &[u8]) -> Result<Vec<u8>> {
-    let id: age::x25519::Identity = identity
-        .parse()
-        .map_err(|e| Error::Crypto(format!("bad identity: {e}")))?;
-    let dec = match age::Decryptor::new(data).map_err(|e| Error::Crypto(format!("age: {e}")))? {
-        age::Decryptor::Recipients(d) => d,
-        _ => return Err(Error::Crypto("expected recipients envelope".into())),
-    };
+/// Encrypt `data` with a passphrase (age scrypt recipient).
+pub fn passphrase_encrypt(pass: &str, data: &[u8]) -> Result<Vec<u8>> {
+    let enc = age::Encryptor::with_user_passphrase(age::secrecy::Secret::new(pass.to_owned()));
     let mut out = Vec::new();
-    let mut r = dec
-        .decrypt(std::iter::once(&id as &dyn age::Identity))
-        .map_err(|e| Error::Crypto(format!("age decrypt: {e}")))?;
-    r.read_to_end(&mut out)
-        .map_err(|e| Error::Crypto(format!("age read: {e}")))?;
+    let mut w = enc
+        .wrap_output(&mut out)
+        .map_err(|e| Error::Crypto(format!("age wrap: {e}")))?;
+    w.write_all(data)
+        .map_err(|e| Error::Crypto(format!("age write: {e}")))?;
+    w.finish()
+        .map_err(|e| Error::Crypto(format!("age finish: {e}")))?;
+    Ok(out)
+}
+
+/// Open an `age` blob that may be sealed *either* to an X25519 identity
+/// (legacy / master-sealed) *or* to a passphrase (hardened). The envelope
+/// header selects the path, so callers don't need to know which was used.
+pub fn age_open(identity: Option<&str>, passphrase: Option<&str>, data: &[u8]) -> Result<Vec<u8>> {
+    let mut out = Vec::new();
+    match age::Decryptor::new(data).map_err(|e| Error::Crypto(format!("age: {e}")))? {
+        age::Decryptor::Recipients(d) => {
+            let id_str = identity.ok_or_else(|| {
+                Error::Crypto("recipients envelope but no identity available".into())
+            })?;
+            let id: age::x25519::Identity = id_str
+                .parse()
+                .map_err(|e| Error::Crypto(format!("bad identity: {e}")))?;
+            let mut r = d
+                .decrypt(std::iter::once(&id as &dyn age::Identity))
+                .map_err(|e| Error::Crypto(format!("age decrypt: {e}")))?;
+            r.read_to_end(&mut out)
+                .map_err(|e| Error::Crypto(format!("age read: {e}")))?;
+        }
+        age::Decryptor::Passphrase(d) => {
+            let pass = passphrase.ok_or(Error::Crypto("passphrase required".into()))?;
+            let mut r = d
+                .decrypt(&age::secrecy::Secret::new(pass.to_owned()), None)
+                .map_err(|e| Error::Crypto(format!("age passphrase decrypt: {e}")))?;
+            r.read_to_end(&mut out)
+                .map_err(|e| Error::Crypto(format!("age read: {e}")))?;
+        }
+    }
     Ok(out)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn passphrase_roundtrip_and_wrong_pass_fails() {
+        let ct = passphrase_encrypt("correct horse", b"master identity").unwrap();
+        assert_eq!(
+            age_open(None, Some("correct horse"), &ct).unwrap(),
+            b"master identity"
+        );
+        assert!(age_open(None, Some("wrong"), &ct).is_err());
+        assert!(age_open(None, None, &ct).is_err());
+    }
+
+    #[test]
+    fn age_open_handles_recipient_envelopes_too() {
+        use age::secrecy::ExposeSecret;
+        let id = age::x25519::Identity::generate();
+        let ct = age_encrypt(&id.to_public().to_string(), b"tier key").unwrap();
+        let pt = age_open(Some(id.to_string().expose_secret()), None, &ct).unwrap();
+        assert_eq!(pt, b"tier key");
+    }
 
     #[test]
     fn seal_open_roundtrip_encrypted() {
@@ -132,15 +179,5 @@ mod tests {
         let k2 = new_symmetric_key().unwrap();
         let env = seal(b"x", &k1, true).unwrap();
         assert!(open(&env, &k2).is_err());
-    }
-
-    #[test]
-    fn age_envelope_roundtrip() {
-        use age::secrecy::ExposeSecret;
-        let id = age::x25519::Identity::generate();
-        let pk = id.to_public().to_string();
-        let ct = age_encrypt(&pk, b"tier key bytes").unwrap();
-        let pt = age_decrypt(id.to_string().expose_secret(), &ct).unwrap();
-        assert_eq!(pt, b"tier key bytes");
     }
 }

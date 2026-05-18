@@ -20,7 +20,7 @@ mod store;
 
 pub use error::{Error, Result};
 pub use infer::{Suggestion, suggest_modules};
-pub use keys::KeyStore;
+pub use keys::{KeyStore, PASSPHRASE_ENV};
 pub use object::{
     AccessTier, EdgeRelation, GraphEdge, GraphNode, NodeSource, NodeState, NodeType, now_micros,
 };
