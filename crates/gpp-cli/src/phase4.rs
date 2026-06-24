@@ -9,7 +9,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use anyhow::{Context, Result, anyhow, bail};
 use gpp_anomaly::{AnomalyStore, ChangesetFacts};
 use gpp_core::{Blob, EntryKind, Hash, ObjectStore, Tree};
-use gpp_cost::{CostFilter, CostRecord, CostStore};
+use gpp_cost::{CostFilter, CostRecord, CostStore, Usage};
 use gpp_history::{AuthorType, Changeset};
 use gpp_policy::{ChangesetFacts as PolFacts, PolicySet, Severity};
 use gpp_trust::{TrustStatus, TrustStore};
@@ -652,6 +652,49 @@ fn collect_files(
 pub fn cost(args: &CostArgs, repo_override: Option<&Path>, json: bool) -> Result<()> {
     let repo = discover(repo_override)?;
     let cs = CostStore::open(&repo.gpp_dir())?;
+
+    if let Some(spec) = &args.report {
+        // Map HEAD / branch / short prefix to the canonical id the
+        // promote-time record is keyed under, so the report updates that
+        // record instead of creating a stray one.
+        let changeset = crate::phase6::resolve_changeset(&repo, spec)?;
+        let usage = Usage {
+            input_tokens: args.input,
+            output_tokens: args.output,
+            cached_tokens: args.cached,
+            cost_microdollars: args.cost_micro,
+            duration_ms: args.duration_ms,
+        };
+        cs.add_usage(&changeset, "", &args.model, &usage)?;
+        let rec = cs.get(&changeset)?;
+        if json {
+            let total = rec.as_ref().map(|r| r.cost_microdollars).unwrap_or(0);
+            println!(
+                "{}",
+                serde_json::json!({
+                    "changeset": changeset,
+                    "model": args.model,
+                    "added": {
+                        "input_tokens": usage.input_tokens,
+                        "output_tokens": usage.output_tokens,
+                        "cached_tokens": usage.cached_tokens,
+                        "cost_usd": usage.cost_microdollars as f64 / 1e6,
+                    },
+                    "total_cost_usd": total as f64 / 1e6,
+                })
+            );
+        } else {
+            let total = rec.as_ref().map(|r| r.cost_microdollars).unwrap_or(0);
+            println!(
+                "recorded usage for {changeset}: +{} in / +{} out tokens, +${:.4} (total ${:.4})",
+                usage.input_tokens,
+                usage.output_tokens,
+                usage.cost_microdollars as f64 / 1e6,
+                total as f64 / 1e6,
+            );
+        }
+        return Ok(());
+    }
 
     if let Some(dollars) = args.budget_alert {
         cs.set_budget(&args.module, (dollars * 1_000_000.0) as i64, 0.8)?;

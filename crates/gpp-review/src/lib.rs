@@ -372,6 +372,34 @@ impl ReviewStore {
             .map(|a| a.identity)
             .collect())
     }
+
+    /// Suggested reviewers with Graphex code-owners taking priority: the
+    /// people the knowledge graph says own the touched modules (via
+    /// `owned-by` edges) lead, then RBAC maintainers fill in, de-duplicated
+    /// preserving order. When `graphex_owners` is empty this degrades exactly
+    /// to [`Self::suggest_reviewers`].
+    ///
+    /// Graphex ownership is *specific* (this module is owned by Dana) where
+    /// RBAC is *coarse* (anyone ≥ Maintainer can review anything), so the
+    /// graph is the better primary signal — but only a suggestion; the human
+    /// decides who actually reviews.
+    pub fn suggest_reviewers_with_owners(
+        graphex_owners: &[String],
+        roles: &RoleStore,
+    ) -> Result<Vec<String>> {
+        let mut seen = std::collections::HashSet::new();
+        let mut out = Vec::new();
+        for who in graphex_owners
+            .iter()
+            .cloned()
+            .chain(Self::suggest_reviewers(roles)?)
+        {
+            if seen.insert(who.clone()) {
+                out.push(who);
+            }
+        }
+        Ok(out)
+    }
 }
 
 #[cfg(test)]
@@ -450,6 +478,27 @@ mod tests {
             .assign("dev@x.io", Role::Contributor, "o", None, None)
             .unwrap();
         let s = ReviewStore::suggest_reviewers(&roles).unwrap();
+        assert_eq!(s, vec!["lead@x.io"]);
+    }
+
+    #[test]
+    fn graphex_owners_lead_then_rbac_fills_in() {
+        let d = tempfile::tempdir().unwrap();
+        let g = d.path().join(".gpp");
+        std::fs::create_dir_all(&g).unwrap();
+        let roles = RoleStore::open(&g).unwrap();
+        roles
+            .assign("lead@x.io", Role::Maintainer, "o", None, None)
+            .unwrap();
+
+        // Graphex owner leads; RBAC maintainer follows; no duplicates even if a
+        // graphex owner is also a maintainer.
+        let owners = vec!["dana@x.io".to_string(), "lead@x.io".to_string()];
+        let s = ReviewStore::suggest_reviewers_with_owners(&owners, &roles).unwrap();
+        assert_eq!(s, vec!["dana@x.io", "lead@x.io"]);
+
+        // No graphex owners → identical to RBAC-only.
+        let s = ReviewStore::suggest_reviewers_with_owners(&[], &roles).unwrap();
         assert_eq!(s, vec!["lead@x.io"]);
     }
 }

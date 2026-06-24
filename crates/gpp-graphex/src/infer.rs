@@ -20,7 +20,7 @@ pub struct Suggestion {
 /// * `src/<x>/...`     → `x`   (module under a src tree)
 /// * `<x>/...`         → `x`   (top-level directory)
 /// * bare file         → file stem
-fn module_root(path: &str) -> Option<String> {
+pub fn module_root(path: &str) -> Option<String> {
     let parts: Vec<&str> = path.split('/').filter(|s| !s.is_empty()).collect();
     match parts.as_slice() {
         ["crates", x, ..] | ["src", x, ..] => Some(x.to_string()),
@@ -30,6 +30,13 @@ fn module_root(path: &str) -> Option<String> {
             .map(|s| s.to_string_lossy().into_owned()),
         _ => None,
     }
+}
+
+/// All distinct module roots touched by `changed` (unlike [`suggest_modules`],
+/// which filters to *new* ones). Used to map a changeset's files back to the
+/// graph nodes they belong to — e.g. to find the modules' `owned-by` owners.
+pub fn module_roots(changed: &[String]) -> BTreeSet<String> {
+    changed.iter().filter_map(|p| module_root(p)).collect()
 }
 
 /// Suggest module nodes for changed paths, skipping ones already known.

@@ -202,10 +202,16 @@ pub struct HttpRequest<'a> {
     pub body: String,
 }
 
-/// Abstracts the HTTP POST so PR creation is unit-testable offline.
+/// Abstracts HTTP so platform dispatch is unit-testable offline.
 pub trait HttpClient {
-    /// Returns `(status, response_body)`.
+    /// POST JSON. Returns `(status, response_body)`.
     fn post_json(&self, req: &HttpRequest) -> Result<(u16, String)>;
+    /// GET with auth. Returns `(status, response_body)`. Defaults to
+    /// unsupported so POST-only clients keep compiling; the real client and
+    /// inbound-sync tests override it.
+    fn get_json(&self, _url: &str, _token: &str) -> Result<(u16, String)> {
+        Err(Error::Http("GET not supported by this client".into()))
+    }
 }
 
 /// Real client: blocking `reqwest` with platform auth headers.
@@ -229,6 +235,25 @@ impl HttpClient for ReqwestClient {
             .header(self.auth_header, token_val)
             .header("Content-Type", "application/json")
             .body(req.body.clone())
+            .send()
+            .map_err(|e| Error::Http(e.to_string()))?;
+        let status = resp.status().as_u16();
+        let text = resp.text().map_err(|e| Error::Http(e.to_string()))?;
+        Ok((status, text))
+    }
+
+    fn get_json(&self, url: &str, token: &str) -> Result<(u16, String)> {
+        let client = reqwest::blocking::Client::new();
+        let token_val = if self.bearer {
+            format!("Bearer {token}")
+        } else {
+            token.to_string()
+        };
+        let resp = client
+            .get(url)
+            .header("User-Agent", "gpp-remote")
+            .header("Accept", "application/json")
+            .header(self.auth_header, token_val)
             .send()
             .map_err(|e| Error::Http(e.to_string()))?;
         let status = resp.status().as_u16();
@@ -318,6 +343,157 @@ fn urlencode(s: &str) -> String {
             _ => format!("%{b:02X}"),
         })
         .collect()
+}
+
+// ---- inbound sync: CI status + PR reviews (GitHub) -------------------------
+
+/// Combined CI state for a commit.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CiStatus {
+    /// Overall rollup: `success`, `pending`, `failure`, or `error`.
+    pub state: String,
+    /// Per-check `(context, state)`, e.g. `("ci/test", "success")`.
+    pub checks: Vec<(String, String)>,
+}
+
+/// One review left on a remote PR.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RemoteReview {
+    pub user: String,
+    /// `APPROVED`, `CHANGES_REQUESTED`, `COMMENTED`, or `DISMISSED`.
+    pub state: String,
+    pub body: String,
+}
+
+/// Roll-up of a PR's reviews — the gate a local merge decision can mirror.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ReviewSummary {
+    pub approvals: usize,
+    pub changes_requested: usize,
+    pub comments: usize,
+    pub reviews: Vec<RemoteReview>,
+}
+
+impl ReviewSummary {
+    fn from_reviews(reviews: Vec<RemoteReview>) -> Self {
+        let mut s = ReviewSummary {
+            reviews: reviews.clone(),
+            ..Default::default()
+        };
+        // GitHub returns one row per review event; the latest per user wins,
+        // but for a summary the raw counts of approval/changes states are the
+        // useful signal. Count terminal states.
+        for r in &reviews {
+            match r.state.as_str() {
+                "APPROVED" => s.approvals += 1,
+                "CHANGES_REQUESTED" => s.changes_requested += 1,
+                "COMMENTED" => s.comments += 1,
+                _ => {}
+            }
+        }
+        s
+    }
+    /// Whether the remote PR is in a mergeable review state (≥1 approval and
+    /// no outstanding change requests) — mirrors the local review gate.
+    pub fn is_approved(&self) -> bool {
+        self.approvals > 0 && self.changes_requested == 0
+    }
+}
+
+/// Parse a GitHub combined-status response (`/commits/{ref}/status`).
+pub fn parse_ci_status(body: &str) -> Result<CiStatus> {
+    let v: serde_json::Value =
+        serde_json::from_str(body).map_err(|e| Error::Platform(e.to_string()))?;
+    let state = v
+        .get("state")
+        .and_then(|s| s.as_str())
+        .unwrap_or("unknown")
+        .to_string();
+    let checks = v
+        .get("statuses")
+        .and_then(|s| s.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|c| {
+                    let ctx = c.get("context")?.as_str()?.to_string();
+                    let st = c.get("state")?.as_str()?.to_string();
+                    Some((ctx, st))
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    Ok(CiStatus { state, checks })
+}
+
+/// Parse a GitHub PR-reviews response (`/pulls/{n}/reviews`).
+pub fn parse_pr_reviews(body: &str) -> Result<ReviewSummary> {
+    let v: serde_json::Value =
+        serde_json::from_str(body).map_err(|e| Error::Platform(e.to_string()))?;
+    let arr = v
+        .as_array()
+        .ok_or_else(|| Error::Platform("expected a JSON array of reviews".into()))?;
+    let reviews = arr
+        .iter()
+        .filter_map(|r| {
+            let user = r
+                .get("user")
+                .and_then(|u| u.get("login"))
+                .and_then(|l| l.as_str())
+                .unwrap_or("")
+                .to_string();
+            let state = r.get("state")?.as_str()?.to_string();
+            let body = r
+                .get("body")
+                .and_then(|b| b.as_str())
+                .unwrap_or("")
+                .to_string();
+            Some(RemoteReview { user, state, body })
+        })
+        .collect();
+    Ok(ReviewSummary::from_reviews(reviews))
+}
+
+/// Import the combined CI status for `git_ref` on a GitHub repo. Inbound sync
+/// is GitHub-only for now (the first-class target).
+pub fn fetch_ci_status(
+    platform: Platform,
+    repo: &str,
+    git_ref: &str,
+    token: &str,
+    http: &dyn HttpClient,
+) -> Result<CiStatus> {
+    if platform != Platform::GitHub {
+        return Err(Error::Platform(
+            "inbound CI status is implemented for GitHub only".into(),
+        ));
+    }
+    let url = format!("https://api.github.com/repos/{repo}/commits/{git_ref}/status");
+    let (status, body) = http.get_json(&url, token)?;
+    if !(200..300).contains(&status) {
+        return Err(Error::Platform(format!("HTTP {status}: {body}")));
+    }
+    parse_ci_status(&body)
+}
+
+/// Import the reviews on a GitHub PR. GitHub-only for now.
+pub fn fetch_pr_reviews(
+    platform: Platform,
+    repo: &str,
+    pr_number: u64,
+    token: &str,
+    http: &dyn HttpClient,
+) -> Result<ReviewSummary> {
+    if platform != Platform::GitHub {
+        return Err(Error::Platform(
+            "inbound review sync is implemented for GitHub only".into(),
+        ));
+    }
+    let url = format!("https://api.github.com/repos/{repo}/pulls/{pr_number}/reviews");
+    let (status, body) = http.get_json(&url, token)?;
+    if !(200..300).contains(&status) {
+        return Err(Error::Platform(format!("HTTP {status}: {body}")));
+    }
+    parse_pr_reviews(&body)
 }
 
 // ---- generic git remote ----------------------------------------------------
@@ -497,6 +673,105 @@ mod tests {
         )
         .unwrap_err();
         assert!(format!("{err}").contains("422"));
+    }
+
+    // ---- inbound sync ------------------------------------------------------
+
+    /// A GET-only mock returning a canned body and recording the URL seen.
+    struct MockGet {
+        seen_url: RefCell<Option<String>>,
+        status: u16,
+        resp: String,
+    }
+    impl HttpClient for MockGet {
+        fn post_json(&self, _: &HttpRequest) -> Result<(u16, String)> {
+            panic!("post must not be called for inbound sync")
+        }
+        fn get_json(&self, url: &str, _token: &str) -> Result<(u16, String)> {
+            *self.seen_url.borrow_mut() = Some(url.to_string());
+            Ok((self.status, self.resp.clone()))
+        }
+    }
+
+    #[test]
+    fn parses_github_ci_status() {
+        let body = r#"{"state":"failure","statuses":[
+            {"context":"ci/test","state":"success"},
+            {"context":"ci/lint","state":"failure"}
+        ]}"#;
+        let s = parse_ci_status(body).unwrap();
+        assert_eq!(s.state, "failure");
+        assert_eq!(s.checks.len(), 2);
+        assert_eq!(s.checks[1], ("ci/lint".into(), "failure".into()));
+    }
+
+    #[test]
+    fn parses_pr_reviews_and_summarizes_gate() {
+        let body = r#"[
+            {"user":{"login":"alice"},"state":"APPROVED","body":"lgtm"},
+            {"user":{"login":"bob"},"state":"CHANGES_REQUESTED","body":"nit"},
+            {"user":{"login":"carol"},"state":"COMMENTED","body":"q"}
+        ]"#;
+        let s = parse_pr_reviews(body).unwrap();
+        assert_eq!(s.approvals, 1);
+        assert_eq!(s.changes_requested, 1);
+        assert_eq!(s.comments, 1);
+        assert!(!s.is_approved(), "a change request blocks the gate");
+
+        let ok =
+            parse_pr_reviews(r#"[{"user":{"login":"a"},"state":"APPROVED","body":""}]"#).unwrap();
+        assert!(ok.is_approved());
+    }
+
+    #[test]
+    fn fetch_ci_status_hits_github_url_and_parses() {
+        let m = MockGet {
+            seen_url: RefCell::new(None),
+            status: 200,
+            resp: r#"{"state":"success","statuses":[]}"#.into(),
+        };
+        let s = fetch_ci_status(Platform::GitHub, "acme/web", "abc123", "tok", &m).unwrap();
+        assert_eq!(s.state, "success");
+        assert!(
+            m.seen_url
+                .borrow()
+                .as_ref()
+                .unwrap()
+                .ends_with("/repos/acme/web/commits/abc123/status")
+        );
+    }
+
+    #[test]
+    fn fetch_pr_reviews_hits_github_url() {
+        let m = MockGet {
+            seen_url: RefCell::new(None),
+            status: 200,
+            resp: r#"[{"user":{"login":"a"},"state":"APPROVED","body":""}]"#.into(),
+        };
+        let s = fetch_pr_reviews(Platform::GitHub, "acme/web", 42, "tok", &m).unwrap();
+        assert!(s.is_approved());
+        assert!(
+            m.seen_url
+                .borrow()
+                .as_ref()
+                .unwrap()
+                .ends_with("/repos/acme/web/pulls/42/reviews")
+        );
+    }
+
+    #[test]
+    fn inbound_sync_is_github_only() {
+        struct Never;
+        impl HttpClient for Never {
+            fn post_json(&self, _: &HttpRequest) -> Result<(u16, String)> {
+                panic!()
+            }
+            fn get_json(&self, _: &str, _: &str) -> Result<(u16, String)> {
+                panic!("must not reach the network for an unsupported platform")
+            }
+        }
+        assert!(fetch_ci_status(Platform::GitLab, "r", "ref", "t", &Never).is_err());
+        assert!(fetch_pr_reviews(Platform::Bitbucket, "r", 1, "t", &Never).is_err());
     }
 
     #[test]

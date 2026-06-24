@@ -19,7 +19,7 @@ mod query;
 mod store;
 
 pub use error::{Error, Result};
-pub use infer::{Suggestion, suggest_modules};
+pub use infer::{Suggestion, module_root, module_roots, suggest_modules};
 pub use keys::{KeyStore, PASSPHRASE_ENV};
 pub use object::{
     AccessTier, EdgeRelation, GraphEdge, GraphNode, NodeSource, NodeState, NodeType, now_micros,

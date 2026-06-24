@@ -134,6 +134,13 @@ pub struct DepsArgs {
     /// Compare against this older lockfile and show only newly-added deps
     #[arg(long)]
     pub since: Option<PathBuf>,
+    /// Enrich with live OSV vulnerability data (opt-in network access).
+    /// Responses are cached under .gpp/cache/deps.
+    #[arg(long)]
+    pub network: bool,
+    /// Cache lifetime in seconds for --network lookups (default 1 day).
+    #[arg(long, value_name = "SECS")]
+    pub cache_ttl: Option<u64>,
 }
 
 #[derive(Args)]
@@ -170,6 +177,18 @@ pub enum RemoteAction {
     Push {
         #[arg(long, default_value = "main")]
         branch: String,
+    },
+    /// Import the combined CI status of a commit from the platform (GitHub)
+    Ci {
+        /// Branch or commit SHA to query (default: current branch)
+        #[arg(long, value_name = "REF")]
+        git_ref: Option<String>,
+    },
+    /// Import the review state of a platform pull request (GitHub)
+    Reviews {
+        /// PR number
+        #[arg(long)]
+        pr: u64,
     },
 }
 
@@ -470,6 +489,29 @@ pub struct CostArgs {
     pub budget_alert: Option<f64>,
     #[arg(long, default_value = "**")]
     pub module: String,
+
+    /// Report token/compute usage for a changeset (agent self-reporting).
+    /// Accumulates onto any existing record. Use with --input/--output/etc.
+    #[arg(long, value_name = "CHANGESET_ID")]
+    pub report: Option<String>,
+    /// Model id for a --report (e.g. claude-opus-4-8).
+    #[arg(long, default_value = "")]
+    pub model: String,
+    /// Input (prompt) tokens for a --report.
+    #[arg(long, default_value_t = 0)]
+    pub input: i64,
+    /// Output (completion) tokens for a --report.
+    #[arg(long, default_value_t = 0)]
+    pub output: i64,
+    /// Cached/prompt-cache tokens for a --report.
+    #[arg(long, default_value_t = 0)]
+    pub cached: i64,
+    /// Cost in micro-dollars for a --report (1 = $0.000001).
+    #[arg(long, value_name = "MICRO", default_value_t = 0)]
+    pub cost_micro: i64,
+    /// Wall-clock duration in milliseconds for a --report.
+    #[arg(long, default_value_t = 0)]
+    pub duration_ms: i64,
 }
 
 #[derive(Args)]

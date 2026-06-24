@@ -466,12 +466,18 @@ fn default_tier(repo: &Repo) -> AccessTier {
 /// Files whose blob differs between HEAD and its first parent (all files if
 /// HEAD is the root changeset).
 fn head_changed_paths(repo: &Repo) -> Result<Vec<String>> {
-    let store = ObjectStore::open(&repo.gpp_dir());
     let refs = RefStore::open(&repo.gpp_dir());
-    let Some(tip) = refs.head_tip()? else {
-        return Ok(Vec::new());
-    };
-    let cs: gpp_history::Changeset = store.read(&tip)?;
+    match refs.head_tip()? {
+        Some(tip) => changed_paths(repo, &tip),
+        None => Ok(Vec::new()),
+    }
+}
+
+/// Paths that differ between `changeset` and its first parent (added or
+/// modified). Used by inference and by Graphex-driven reviewer assignment.
+pub(crate) fn changed_paths(repo: &Repo, changeset: &Hash) -> Result<Vec<String>> {
+    let store = ObjectStore::open(&repo.gpp_dir());
+    let cs: gpp_history::Changeset = store.read(changeset)?;
     let new = flatten(&store, &cs.tree)?;
     let old = match cs.parents.first() {
         Some(p) => {
