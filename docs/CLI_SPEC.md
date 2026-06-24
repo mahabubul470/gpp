@@ -356,6 +356,14 @@ Flags:
   --breakdown         Detailed breakdown by model/agent
   --budget            Show budget status
   --budget-alert <$>  Set weekly budget alert threshold
+  --report <cs>       Report token/compute usage for a changeset
+                      (HEAD, a short id, or a full hash). Accumulates.
+  --model <id>        Model id for --report (e.g. claude-opus-4-8)
+  --input <n>         Input (prompt) tokens for --report
+  --output <n>        Output (completion) tokens for --report
+  --cached <n>        Cached/prompt-cache tokens for --report
+  --cost-micro <n>    Cost in micro-dollars for --report (1 = $0.000001)
+  --duration-ms <n>   Wall-clock duration in ms for --report
 
 Examples:
   gpp cost --this-week
@@ -364,7 +372,13 @@ Examples:
   gpp cost --breakdown --this-month
   gpp cost --budget
   gpp cost --budget-alert 100.00
+  gpp cost --report HEAD --model claude-opus-4-8 --input 1500 --output 300 --cost-micro 22000
 ```
+
+An AI agent reports its own usage with `--report` after promoting (or via the
+`report_cost` MCP tool / the SDK's `AgentSession::report_cost`). Until it does,
+a changeset's cost is recorded as zero. See the MCP tutorial for the full agent
+loop.
 
 ## Sync Commands
 
@@ -623,6 +637,19 @@ Examples:
   gpp remote pr sync --direction bidirectional
   gpp remote ci status
   gpp remote issues link PROJ-2847
+```
+
+**Implemented today** (the rest of the above is the target surface):
+
+```
+  gpp remote setup --platform github --repository acme/webapp --token-env GITHUB_TOKEN
+  gpp remote status
+  gpp remote pr-create [--base main] [--head <branch>] [--title <t>]
+  gpp remote push [--branch main]            # plain Git push, no platform API
+
+  # Inbound sync (GitHub; reads the live API via $GITHUB_TOKEN):
+  gpp remote ci [--git-ref <branch|sha>]     # combined CI status for a commit
+  gpp remote reviews --pr <n>                # PR review state + approval gate
 ```
 
 ## Notification Commands

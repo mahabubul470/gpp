@@ -9,6 +9,7 @@
 use std::io::{BufRead, Write};
 
 use anyhow::Result;
+use gpp_cost::{CostStore, Usage};
 use gpp_graphex::{AccessTier, GraphStore, NodeState, NodeType, Pattern};
 use gpp_sdk::{AgentSession, GraphUpdate};
 use serde_json::{Value, json};
@@ -17,6 +18,32 @@ use crate::repo::Repo;
 
 const PROTOCOL_VERSION: &str = "2025-06-18";
 const AGENT_ID: &str = "agent:mcp-client";
+
+/// Returned in `initialize` so an MCP client (Claude Code, etc.) learns the
+/// intended workflow without the user having to explain gpp.
+const INSTRUCTIONS: &str = "\
+gpp (git++) is an AI-native version control system. Use these tools to work \
+with the repository as a first-class agent:
+
+1. Before editing, call `graphex_query` for project context (architecture, \
+   modules, conventions). Use `graphex_glossary` for domain terms and \
+   `graphex_conventions` for coding rules. You only ever see tiers your trust \
+   level permits.
+2. Edit files normally — the timeline captures every change automatically.
+3. When a unit of work is done, call `propose_changeset` with a clear message \
+   and an intent (feature/fix/refactor/test/docs/chore). It returns the \
+   changeset id.
+4. Immediately call `report_cost` with that changeset id and your token usage \
+   for the work (input/output/cached tokens, and cost in micro-dollars if you \
+   know it). This is how gpp attributes real cost — skipping it leaves the \
+   changeset recorded as free. Reports accumulate, so you may call it more \
+   than once.
+5. If you learned a durable fact about the codebase (a module, an invariant, \
+   a glossary term), call `propose_graph_update` to suggest it. It lands as \
+   Proposed for a human to approve — never applied silently.
+
+Changesets you propose are reviewed by humans before they merge. Be honest in \
+messages and intents; your trust score depends on it.";
 
 pub fn serve_stdio(repo: Repo, max_tier: AccessTier) -> Result<()> {
     let stdin = std::io::stdin();
@@ -58,6 +85,7 @@ pub fn serve_stdio(repo: Repo, max_tier: AccessTier) -> Result<()> {
                 "protocolVersion": PROTOCOL_VERSION,
                 "capabilities": {"tools": {}},
                 "serverInfo": {"name": "gpp", "version": env!("CARGO_PKG_VERSION")},
+                "instructions": INSTRUCTIONS,
             })),
             "ping" => Ok(json!({})),
             "tools/list" => Ok(json!({ "tools": tool_specs() })),
@@ -130,6 +158,16 @@ fn tool_specs() -> Vec<Value> {
             json!({"node_type":{"type":"string"},"name":{"type":"string"},
                    "description":{"type":"string"},"tier":{"type":"string"}}),
             json!(["node_type", "name", "description"]),
+        ),
+        s(
+            "report_cost",
+            "Attribute your token/compute usage to a changeset (the id returned \
+             by propose_changeset). Reports accumulate. cost_microdollars is \
+             integer micro-dollars (1 = $0.000001).",
+            json!({"changeset":{"type":"string"},"model":{"type":"string"},
+                   "input_tokens":{"type":"integer"},"output_tokens":{"type":"integer"},
+                   "cached_tokens":{"type":"integer"},"cost_microdollars":{"type":"integer"}}),
+            json!(["changeset"]),
         ),
     ]
 }
@@ -206,7 +244,32 @@ fn handle_tool_call(
                     .unwrap_or(gpp_history::IntentType::AgentProposed);
                 let sess = AgentSession::open(&repo.root, AGENT_ID, "MCP Client", max_tier)?;
                 let cs = sess.propose_changeset(None, None, msg, intent)?;
-                Ok(text_result(format!("changeset cs:{}", cs.short())))
+                Ok(text_result(format!(
+                    "changeset {} — now call report_cost with this id and your token usage",
+                    cs.to_base32()
+                )))
+            }
+            "report_cost" => {
+                let spec = a
+                    .get("changeset")
+                    .and_then(|c| c.as_str())
+                    .ok_or_else(|| anyhow::anyhow!("changeset is required"))?;
+                let changeset = crate::phase6::resolve_changeset(repo, spec)?;
+                let model = a.get("model").and_then(|m| m.as_str()).unwrap_or("");
+                let int = |k: &str| a.get(k).and_then(|v| v.as_i64()).unwrap_or(0);
+                let usage = Usage {
+                    input_tokens: int("input_tokens"),
+                    output_tokens: int("output_tokens"),
+                    cached_tokens: int("cached_tokens"),
+                    cost_microdollars: int("cost_microdollars"),
+                    duration_ms: int("duration_ms"),
+                };
+                let cs = CostStore::open(&gpp)?;
+                cs.add_usage(&changeset, AGENT_ID, model, &usage)?;
+                Ok(text_result(format!(
+                    "recorded {} in / {} out tokens for {changeset}",
+                    usage.input_tokens, usage.output_tokens
+                )))
             }
             "propose_graph_update" => {
                 let node_type = a

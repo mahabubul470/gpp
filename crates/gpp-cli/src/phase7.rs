@@ -9,6 +9,7 @@ use gpp_core::{Blob, EntryKind, Hash, ObjectStore, Tree};
 use gpp_history::{AuthorType, Changeset, RefStore};
 use gpp_remote::{
     Enrichment, GenericGitRemote, Platform, PrRequest, RemoteConfig, ReqwestClient, create_pr,
+    fetch_ci_status, fetch_pr_reviews,
 };
 
 use crate::cli::{RelayAction, RelayArgs, RemoteAction, RemoteArgs};
@@ -227,6 +228,69 @@ pub fn remote(args: &RemoteArgs, repo_override: Option<&Path>) -> Result<()> {
             println!("{msg}");
             Ok(())
         }
+        RemoteAction::Ci { git_ref } => {
+            let (cfg, token) = remote_auth(&gpp)?;
+            let git_ref = match git_ref {
+                Some(r) => r.clone(),
+                None => repo.current_branch().unwrap_or_else(|_| "main".into()),
+            };
+            let st = fetch_ci_status(cfg.platform, &cfg.repository, &git_ref, &token, &github())
+                .map_err(|e| anyhow!("{e}"))?;
+            let mark = match st.state.as_str() {
+                "success" => "✓",
+                "pending" => "…",
+                _ => "✗",
+            };
+            println!("{mark} CI {} for {} @ {git_ref}", st.state, cfg.repository);
+            for (ctx, state) in &st.checks {
+                println!("    {state:<10} {ctx}");
+            }
+            Ok(())
+        }
+        RemoteAction::Reviews { pr } => {
+            let (cfg, token) = remote_auth(&gpp)?;
+            let s = fetch_pr_reviews(cfg.platform, &cfg.repository, *pr, &token, &github())
+                .map_err(|e| anyhow!("{e}"))?;
+            println!(
+                "PR #{pr}: {} approval(s), {} change request(s), {} comment(s) — {}",
+                s.approvals,
+                s.changes_requested,
+                s.comments,
+                if s.is_approved() {
+                    "APPROVED ✓"
+                } else {
+                    "not yet mergeable"
+                }
+            );
+            for r in &s.reviews {
+                println!("    {:<18} {}", r.user, r.state);
+            }
+            Ok(())
+        }
+    }
+}
+
+/// Load remote config and the API token, requiring a GitHub remote (inbound
+/// sync is GitHub-only for now).
+fn remote_auth(gpp: &Path) -> Result<(RemoteConfig, String)> {
+    let cfg = RemoteConfig::load(gpp).map_err(|e| anyhow!("{e}"))?;
+    if cfg.platform != Platform::GitHub {
+        bail!("inbound sync (ci/reviews) is implemented for GitHub only");
+    }
+    let token = std::env::var(&cfg.api_token_env).map_err(|_| {
+        anyhow!(
+            "${} is not set (needed for inbound sync)",
+            cfg.api_token_env
+        )
+    })?;
+    Ok((cfg, token))
+}
+
+/// A GitHub-authenticated HTTP client (Bearer token).
+fn github() -> ReqwestClient {
+    ReqwestClient {
+        auth_header: "Authorization",
+        bearer: true,
     }
 }
 

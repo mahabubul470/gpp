@@ -1169,6 +1169,7 @@ dependencies = [
 name = "gpp-deps"
 version = "0.1.0"
 dependencies = [
+ "reqwest",
  "serde",
  "serde_json",
  "tempfile",
@@ -1335,6 +1336,7 @@ name = "gpp-sdk"
 version = "0.1.0"
 dependencies = [
  "gpp-core",
+ "gpp-cost",
  "gpp-graphex",
  "gpp-history",
  "gpp-timeline",

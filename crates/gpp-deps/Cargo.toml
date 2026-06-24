@@ -11,6 +11,10 @@ serde.workspace = true
 serde_json.workspace = true
 toml.workspace = true
 thiserror.workspace = true
+# Live enrichment (OSV vulnerability API) is opt-in at the call site; the
+# blocking client is only constructed on a cache miss. Same client/TLS the
+# other integration crates (gpp-remote, gpp-notify) already use.
+reqwest = { workspace = true, features = ["blocking", "json"] }
 
 [dev-dependencies]
 tempfile.workspace = true

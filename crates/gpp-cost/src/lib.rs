@@ -52,6 +52,18 @@ pub struct CostRecord {
     pub timestamp: i64,
 }
 
+/// Token/compute usage an agent reports for a changeset. Reports accumulate:
+/// an agent whose work spans several turns can call `add_usage` repeatedly and
+/// the counts sum. Money is integer micro-dollars (1 = $0.000001).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Usage {
+    pub input_tokens: i64,
+    pub output_tokens: i64,
+    pub cached_tokens: i64,
+    pub cost_microdollars: i64,
+    pub duration_ms: i64,
+}
+
 /// Aggregate roll-up over a filter.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct CostSummary {
@@ -156,6 +168,83 @@ impl CostStore {
             ],
         )?;
         Ok(())
+    }
+
+    /// Add reported usage to a changeset's cost record, accumulating onto any
+    /// existing counts. Creates the record if a changeset hasn't been recorded
+    /// yet (the SDK path promotes without going through the CLI's
+    /// promote-time recorder). `agent_id`/`model_id` overwrite the stored
+    /// values only when non-empty, so an agent can fill in the real model on a
+    /// record the CLI wrote with the `"unknown"` placeholder.
+    ///
+    /// This is the seam where *real* numbers replace the zeros written at
+    /// promote time — the path a Tier-3 SDK agent, the `report_cost` MCP tool,
+    /// and `gpp cost report` all funnel through.
+    pub fn add_usage(
+        &self,
+        changeset_id: &str,
+        agent_id: &str,
+        model_id: &str,
+        u: &Usage,
+    ) -> Result<()> {
+        self.conn.execute(
+            "INSERT INTO cost_records
+                (changeset_id, agent_id, model_id, input_tokens, output_tokens,
+                 cached_tokens, cost_microdollars, duration_ms, timestamp)
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)
+             ON CONFLICT(changeset_id) DO UPDATE SET
+                input_tokens      = input_tokens      + excluded.input_tokens,
+                output_tokens     = output_tokens     + excluded.output_tokens,
+                cached_tokens     = cached_tokens     + excluded.cached_tokens,
+                cost_microdollars = cost_microdollars + excluded.cost_microdollars,
+                duration_ms       = duration_ms       + excluded.duration_ms,
+                agent_id = CASE WHEN excluded.agent_id != '' THEN excluded.agent_id
+                                ELSE cost_records.agent_id END,
+                model_id = CASE WHEN excluded.model_id != '' THEN excluded.model_id
+                                ELSE cost_records.model_id END",
+            params![
+                changeset_id,
+                agent_id,
+                model_id,
+                u.input_tokens,
+                u.output_tokens,
+                u.cached_tokens,
+                u.cost_microdollars,
+                u.duration_ms,
+                now_micros(),
+            ],
+        )?;
+        Ok(())
+    }
+
+    /// Read a single changeset's cost record, if one exists.
+    pub fn get(&self, changeset_id: &str) -> Result<Option<CostRecord>> {
+        self.conn
+            .query_row(
+                "SELECT changeset_id, agent_id, model_id, input_tokens, output_tokens,
+                        cached_tokens, cost_microdollars, duration_ms, files_touched,
+                        lines_changed, lines_survived, timestamp
+                 FROM cost_records WHERE changeset_id=?1",
+                [changeset_id],
+                |r| {
+                    Ok(CostRecord {
+                        changeset_id: r.get(0)?,
+                        agent_id: r.get(1)?,
+                        model_id: r.get(2)?,
+                        input_tokens: r.get(3)?,
+                        output_tokens: r.get(4)?,
+                        cached_tokens: r.get(5)?,
+                        cost_microdollars: r.get(6)?,
+                        duration_ms: r.get(7)?,
+                        files_touched: r.get(8)?,
+                        lines_changed: r.get(9)?,
+                        lines_survived: r.get(10)?,
+                        timestamp: r.get(11)?,
+                    })
+                },
+            )
+            .optional()
+            .map_err(Error::from)
     }
 
     /// Set surviving-line count once a changeset's review concludes.
@@ -303,6 +392,87 @@ mod tests {
         assert_eq!(sum.cost_microdollars, 30_000);
         assert_eq!(sum.lines_survived, 100);
         assert_eq!(sum.cost_per_survived_line(), Some(300.0));
+    }
+
+    #[test]
+    fn add_usage_accumulates_and_fills_placeholder() {
+        let (_d, s) = cs();
+        // Promote-time placeholder: real numbers unknown, model "unknown".
+        s.record(&CostRecord {
+            changeset_id: "cs1".into(),
+            agent_id: "agent:a".into(),
+            model_id: "unknown".into(),
+            files_touched: 3,
+            lines_changed: 40,
+            timestamp: 1_000,
+            ..Default::default()
+        })
+        .unwrap();
+
+        // Agent reports usage twice (work spanned two turns); counts accumulate
+        // and the real model id replaces the placeholder. agent_id is preserved
+        // when the report passes an empty one.
+        s.add_usage(
+            "cs1",
+            "",
+            "claude-opus-4-8",
+            &Usage {
+                input_tokens: 1000,
+                output_tokens: 200,
+                cost_microdollars: 15_000,
+                duration_ms: 1200,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        s.add_usage(
+            "cs1",
+            "",
+            "claude-opus-4-8",
+            &Usage {
+                input_tokens: 500,
+                output_tokens: 100,
+                cost_microdollars: 8_000,
+                duration_ms: 800,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+
+        let rec = s.get("cs1").unwrap().expect("record exists");
+        assert_eq!(rec.input_tokens, 1500);
+        assert_eq!(rec.output_tokens, 300);
+        assert_eq!(rec.cost_microdollars, 23_000);
+        assert_eq!(rec.duration_ms, 2000);
+        assert_eq!(rec.model_id, "claude-opus-4-8");
+        assert_eq!(rec.agent_id, "agent:a", "preserved when report omits it");
+        // Promote-time delta fields untouched by usage reports.
+        assert_eq!(rec.files_touched, 3);
+        assert_eq!(rec.lines_changed, 40);
+    }
+
+    #[test]
+    fn add_usage_creates_record_when_absent() {
+        let (_d, s) = cs();
+        // No prior promote-time record (the SDK promote path) — add_usage
+        // inserts one.
+        s.add_usage(
+            "cs-sdk",
+            "agent:b",
+            "claude-sonnet-4-6",
+            &Usage {
+                input_tokens: 700,
+                output_tokens: 90,
+                cost_microdollars: 5_000,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let rec = s.get("cs-sdk").unwrap().expect("record created");
+        assert_eq!(rec.agent_id, "agent:b");
+        assert_eq!(rec.input_tokens, 700);
+        assert_eq!(rec.cost_microdollars, 5_000);
+        assert!(s.get("missing").unwrap().is_none());
     }
 
     #[test]

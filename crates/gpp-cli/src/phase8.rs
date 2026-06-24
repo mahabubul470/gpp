@@ -65,6 +65,34 @@ pub fn deps(args: &DepsArgs, repo_override: Option<&Path>) -> Result<()> {
         println!("newly-added dependencies:");
     }
 
+    // Opt-in live enrichment: fold known OSV advisories into the scores.
+    if args.network {
+        let cache_dir = repo
+            .as_ref()
+            .map(|r| r.gpp_dir().join("cache/deps"))
+            .unwrap_or_else(|| std::env::temp_dir().join("gpp-deps-cache"));
+        let ttl = args.cache_ttl.unwrap_or(gpp_deps::DEFAULT_CACHE_TTL_SECS);
+        match gpp_deps::enrich_with_osv(&mut deps, &cache_dir, ttl) {
+            Ok(r) => {
+                println!(
+                    "OSV: {} queried ({} cached, {} fetched), {} vulnerable{}",
+                    r.queried,
+                    r.from_cache,
+                    r.fetched,
+                    r.vulnerable,
+                    if r.errors.is_empty() {
+                        String::new()
+                    } else {
+                        format!(", {} lookup error(s)", r.errors.len())
+                    }
+                );
+                // Re-sort: advisories may have raised some risks.
+                deps.sort_by(|a, b| b.risk.cmp(&a.risk).then(a.name.cmp(&b.name)));
+            }
+            Err(e) => eprintln!("OSV enrichment unavailable: {e}"),
+        }
+    }
+
     let mut shown = 0;
     for d in &deps {
         if d.risk < args.min_risk {

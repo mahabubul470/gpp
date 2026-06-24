@@ -37,7 +37,7 @@ fn whoami() -> String {
 
 /// Resolve a changeset spec (`HEAD`, a branch, a short or full hash) to its
 /// canonical full base32 id — the key reviews are stored under.
-fn resolve_changeset(repo: &Repo, spec: &str) -> Result<String> {
+pub(crate) fn resolve_changeset(repo: &Repo, spec: &str) -> Result<String> {
     let s = spec.strip_prefix("cs:").unwrap_or(spec);
     let refs = gpp_history::RefStore::open(&repo.gpp_dir());
     if s.eq_ignore_ascii_case("HEAD") {
@@ -103,10 +103,14 @@ fn on_promote_inner(
         })
         .unwrap_or(true);
 
+    // Graphex code-owners of the touched modules lead the suggestion; RBAC
+    // maintainers fill in behind them. Best-effort: a graph/role read failure
+    // just yields fewer suggestions, never blocks the promote.
+    let owners = graphex_owners_for(repo, changeset).unwrap_or_default();
     let reviewers = RoleStore::open(&gpp)
         .ok()
-        .and_then(|rs| ReviewStore::suggest_reviewers(&rs).ok())
-        .unwrap_or_default();
+        .and_then(|rs| ReviewStore::suggest_reviewers_with_owners(&owners, &rs).ok())
+        .unwrap_or(owners);
 
     if auto {
         ReviewStore::open(&gpp)?
@@ -125,6 +129,36 @@ fn on_promote_inner(
         )
         .map_err(|e| anyhow!("{e}"))?;
     Ok(())
+}
+
+/// People the knowledge graph names as owners (`owned-by` edges) of the
+/// modules a changeset touched. Maps changed paths → module roots → graph
+/// nodes → their `owned-by` owners. Returns owner node names (which double as
+/// reviewer identities), de-duplicated, order-stable.
+fn graphex_owners_for(repo: &Repo, changeset: &str) -> Result<Vec<String>> {
+    use gpp_graphex::GraphStore;
+
+    let id = Hash::from_base32(changeset.strip_prefix("cs:").unwrap_or(changeset))?;
+    let changed = crate::phase3::changed_paths(repo, &id)?;
+    let roots = gpp_graphex::module_roots(&changed);
+    let gs = GraphStore::open(&repo.gpp_dir())?;
+
+    let mut seen = std::collections::HashSet::new();
+    let mut owners = Vec::new();
+    for root in roots {
+        // A module that isn't in the graph simply has no graph-owner.
+        let Ok(node) = gs.node_id_by_name(&root) else {
+            continue;
+        };
+        for (_rel, owner_id) in gs.neighbours(&node, Some("owned-by"))? {
+            if let Some(meta) = gs.node_meta(&owner_id)?
+                && seen.insert(meta.name.clone())
+            {
+                owners.push(meta.name);
+            }
+        }
+    }
+    Ok(owners)
 }
 
 // ---------------------------------------------------------------------------

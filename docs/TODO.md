@@ -97,29 +97,59 @@ so they're listed in that order). **(b) adoption leverage:**
 bidirectional platform sync, then live dependency intelligence.
 **(c) polish:** everything after.
 
-- [ ] **Real token/cost capture.** Cost records are created at
-  promote-time with tokens/cost = 0 until a Tier-3 SDK reports usage.
-  Wire actual agent usage reporting through the SDK. *Blocks per-path
-  attribution below — until this lands, the cost layer is structurally
-  complete but numerically empty.*
+- [x] **Real token/cost capture.** Done 2026-06-24. Added
+  `CostStore::add_usage` (accumulating upsert that fills the promote-time
+  `"unknown"` placeholder) + `get`; `AgentSession::report_cost` (re-exports
+  `gpp_cost::Usage`); a `gpp cost --report <cs> --model --input --output
+  --cached --cost-micro --duration-ms` CLI path (resolves HEAD/short id to
+  the canonical record); and a `report_cost` MCP tool. The MCP server now
+  returns an `instructions` block teaching the propose→report loop, and
+  `propose_changeset` returns the full changeset id so the agent can report
+  against it. Tests: `gpp-cost` (accumulate + placeholder-fill + create),
+  `gpp-sdk` (report round-trip), `gpp-cli/tests/cost_report.rs` (3 e2e).
+  Docs: `tut-mcp.md` (full agent loop + `.mcp.json`), `CLI_SPEC.md`.
 - [ ] **Per-path cost attribution** (Phase 4 deviation). Cost is
   repo-wide today; attribute to changed paths. Depends on real token
   capture above (attributing zeros per path is meaningless).
-- [~] **Live dependency intelligence** (`gpp-deps`). Offline lockfile +
-  heuristic risk works; add live crates.io / npm / OSV (CVE) / license
-  APIs behind an opt-in network flag with response caching.
-- [~] **Bidirectional platform sync** (`gpp-remote`, Phase 7). PR
-  creation + enriched bodies work; payload builders for review/comment
-  sync, CI-status import, and issue linking exist but aren't wired to
-  authenticated polling. Implement the live round-trips.
+- [~] **Live dependency intelligence** (`gpp-deps`). OSV (CVE) enrichment
+  done 2026-06-24: `gpp deps --network` queries api.osv.dev per dependency
+  (Cargo→crates.io, npm→npm), folds advisories into the score (pins a
+  vulnerable dep to risk ≥ 85 + a note listing advisory ids), and caches
+  responses under `.gpp/cache/deps` with a 1-day TTL (`--cache-ttl` to
+  override). All best-effort — per-dep network failures are reported, never
+  fatal; an all-cache run does zero network I/O (client built lazily on
+  first miss). Verified live: `smallvec 1.6.0` → RUSTSEC-2021-0003. Tests:
+  `gpp-deps` (OSV response parse, risk/note application, fresh-vs-stale
+  cache served offline). *Still open:* crates.io/npm registry metadata
+  (yank/latest/downloads) and license APIs.
+- [~] **Bidirectional platform sync** (`gpp-remote`, Phase 7). Inbound
+  read round-trips done 2026-06-24 (GitHub): `HttpClient` gained a
+  `get_json` method (default-erroring so POST-only clients still compile;
+  `ReqwestClient` overrides it); `fetch_ci_status` imports the combined
+  commit status and `fetch_pr_reviews` imports PR reviews into a
+  `ReviewSummary` with an `is_approved()` gate mirroring the local one.
+  CLI: `gpp remote ci [--git-ref REF]` and `gpp remote reviews --pr N`
+  (GitHub-only, clear error otherwise). Pure parsers + GET dispatch are
+  unit-tested offline via a GET mock (5 new tests). *Still open:* writing
+  imported approvals back into the local `ReviewStore`, posting
+  review/issue comments outbound, issue-ref linking, and GitLab/Bitbucket
+  inbound. (PR creation + enriched bodies already worked.)
 - [~] **Native SDK bindings.** Rust `gpp-sdk` + `--json` CLI are the
   integration path today; add PyO3 (Python) and napi (JS) wrappers and
   the build tooling to ship them.
 - [~] **Federation hardening** (Phase 5). Config + graph-only sync work;
   add publish-filter globs and one-way federated read-only enforcement.
-- [ ] **Graphex semantic reviewer assignment** (Phase 6 deviation). The
-  `owned-by` edge exists; make it the primary reviewer-suggestion source
-  instead of RBAC owners/maintainers only.
+- [x] **Graphex semantic reviewer assignment** (Phase 6 deviation). Done
+  2026-06-24. `owned-by` edges are now the primary reviewer-suggestion
+  source: the promote hook maps the changeset's changed paths → module
+  roots (`gpp_graphex::module_roots`, exposed from the existing inference
+  logic) → graph nodes → their `owned-by` owners, and feeds them to the
+  new `ReviewStore::suggest_reviewers_with_owners` (graph owners lead, RBAC
+  maintainers fill in behind, de-duplicated; empty owners ⇒ old RBAC-only
+  behaviour). Best-effort — a graph/role read failure never blocks the
+  promote. Tests: `gpp-graphex` (`module_roots`), `gpp-review`
+  (merge/empty policy), `gpp-cli/tests/reviewer_assignment.rs` (e2e: a
+  graph owner with no RBAC role is notified on a change to her module).
 - [ ] **Semantic-diff-driven Graphex inference** (Phase 3 deviation).
   Auto-inference currently keys off changed file *paths*; drive richer
   edge inference from the semantic diff.

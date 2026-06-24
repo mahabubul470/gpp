@@ -1,6 +1,6 @@
 //! `gpp-sdk` — the Tier 3 native agent SDK.
 //!
-//! An [`AgentSession`] gives an AI agent three capabilities, all
+//! An [`AgentSession`] gives an AI agent four capabilities, all
 //! trust/approval-gated by the layers beneath it:
 //!
 //! * [`AgentSession::query_graphex`] — pull a tier-filtered context
@@ -9,6 +9,9 @@
 //!   changeset, attributed to the agent.
 //! * [`AgentSession::propose_graph_update`] — propose graph changes; node
 //!   additions land as *Proposed* (human-approved), per the Graphex protocol.
+//! * [`AgentSession::report_cost`] — attribute real token/compute [`Usage`] to
+//!   a changeset, so the cost layer holds actual numbers rather than the zeros
+//!   written at promote time.
 //!
 //! See `docs/ROADMAP.md` (Phase 3).
 #![forbid(unsafe_code)]
@@ -24,6 +27,8 @@ use gpp_history::{Author, AuthorType, IntentType, PromoteOptions, RefStore};
 use gpp_timeline::Timeline;
 use thiserror::Error;
 
+pub use gpp_cost::Usage;
+
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("not a gpp repository (no .gpp/ found from {0})")]
@@ -34,6 +39,8 @@ pub enum Error {
     History(#[from] gpp_history::Error),
     #[error("timeline error: {0}")]
     Timeline(String),
+    #[error("cost error: {0}")]
+    Cost(#[from] gpp_cost::Error),
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),
     #[error("{0}")]
@@ -240,6 +247,20 @@ impl AgentSession {
             }
         }
     }
+
+    /// Attribute real token/compute [`Usage`] to a changeset this agent
+    /// produced (normally the hash returned by [`Self::propose_changeset`]).
+    ///
+    /// Reports accumulate, so an agent whose work spans several turns can call
+    /// this repeatedly; the counts sum and `model_id` fills in over the
+    /// `"unknown"` placeholder the promote-time recorder wrote. This is the
+    /// Tier-3 path that turns the cost layer from structurally-complete into
+    /// numerically-real.
+    pub fn report_cost(&self, changeset: &Hash, model_id: &str, usage: &Usage) -> Result<()> {
+        let cs = gpp_cost::CostStore::open(&self.gpp_dir)?;
+        cs.add_usage(&changeset.to_base32(), &self.agent_id, model_id, usage)?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -298,5 +319,24 @@ mod tests {
         // Projection is tier-filtered and queryable by the agent.
         let ctx = sess.query_graphex(None, 5_000).unwrap();
         assert!(ctx.contains("Project Context"));
+
+        // Agent reports its token usage for the changeset it proposed.
+        sess.report_cost(
+            &cs,
+            "claude-opus-4-8",
+            &Usage {
+                input_tokens: 1200,
+                output_tokens: 340,
+                cost_microdollars: 18_000,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let cost = gpp_cost::CostStore::open(&d.path().join(".gpp")).unwrap();
+        let rec = cost.get(&cs.to_base32()).unwrap().expect("cost recorded");
+        assert_eq!(rec.input_tokens, 1200);
+        assert_eq!(rec.cost_microdollars, 18_000);
+        assert_eq!(rec.model_id, "claude-opus-4-8");
+        assert_eq!(rec.agent_id, "agent:claude");
     }
 }
