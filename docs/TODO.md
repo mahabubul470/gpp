@@ -57,13 +57,22 @@ P0.4 depth pass data-driven instead of aspirational.
   Worst offenders for P0.4 to target: `gpp-relay/main.rs` 0% (binary,
   no harness), `gpp-tui` 55%, `gpp-graphex/project.rs` 48%,
   `gpp-graphex/object.rs` 58% / `store.rs` 63%, `gpp-remote` 67%.
-- [ ] **P0.4 — Test depth pass.** Bring smoke-only crates up to the
+- [~] **P0.4 — Test depth pass.** Bring smoke-only crates up to the
   core-crate bar. Add a `tests/` integration dir per crate exercising
   the real store/db path (not just inline unit tests). Priority order by
   current thinness: `gpp-sdk` (1), `gpp-notify` / `gpp-rbac` /
   `gpp-replay` / `gpp-tui` (2 each), `gpp-trust` / `gpp-sync` /
   `gpp-cost` (3 each). Target: each core crate ≥ 80%, integration crates
   ≥ 60% (the `CLAUDE.md` target). Large, ongoing; gated by P0.3.
+  - [x] `gpp-tui` (2026-06-24): **55% → 86.6% line** (clears the 80%
+    core bar). Extracted the keymap (`Action::from_key`), wraparound
+    (`step_selection`), and frame rendering (`draw`) out of the TTY
+    `run` loop so they're testable headless; added `tests/dashboard.rs`
+    exercising `Dashboard::collect` against real timeline/history/trust/
+    anomaly/cost/review stores + `TestBackend` render assertions.
+    2 → 17 tests. Remaining gap is the `run` event loop (needs a PTY).
+  - [ ] Next: `gpp-sdk` (1 test, thinnest), then `gpp-notify` /
+    `gpp-rbac` / `gpp-replay`.
 - [ ] **P0.5 — End-to-end integration tests** under `tests/integration/`:
   two-peer sync round-trip, git-import→promote→git-export fidelity,
   promote→review→merge gate, MCP query→propose→accept. The crate-level
