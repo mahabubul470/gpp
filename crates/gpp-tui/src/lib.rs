@@ -12,6 +12,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use crossterm::event::{self, Event, KeyCode, KeyModifiers};
+use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout as RLayout};
 use ratatui::style::{Modifier, Style};
 use ratatui::text::Line;
@@ -206,6 +207,83 @@ impl Dashboard {
     }
 }
 
+/// A navigation action resolved from a key event. Extracted from the
+/// `ratatui` loop so the keymap is unit-testable without a TTY.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Action {
+    Quit,
+    Next,
+    Prev,
+    Refresh,
+    Ignore,
+}
+
+impl Action {
+    /// Map a key code + modifiers to a dashboard action.
+    pub fn from_key(code: KeyCode, mods: KeyModifiers) -> Action {
+        match code {
+            KeyCode::Char('q') | KeyCode::Esc => Action::Quit,
+            KeyCode::Char('c') if mods.contains(KeyModifiers::CONTROL) => Action::Quit,
+            KeyCode::Tab | KeyCode::Down | KeyCode::Char('j') => Action::Next,
+            KeyCode::BackTab | KeyCode::Up | KeyCode::Char('k') => Action::Prev,
+            KeyCode::Char('r') => Action::Refresh,
+            _ => Action::Ignore,
+        }
+    }
+}
+
+/// Move the selection `forward`/back through `len` panels with wraparound.
+/// Returns `selected` unchanged when `len` is 0 (no panels to move through).
+pub fn step_selection(selected: usize, len: usize, forward: bool) -> usize {
+    if len == 0 {
+        return selected;
+    }
+    if forward {
+        (selected + 1) % len
+    } else {
+        (selected + len - 1) % len
+    }
+}
+
+/// Render one frame: the panel list on the left (with `selected` highlighted)
+/// and the focused panel's body on the right. Pure in its inputs and backend-
+/// agnostic, so it renders to a `TestBackend` in unit tests without a TTY.
+pub fn draw(frame: &mut Frame, panels: &[Panel], selected: usize, dash: &Dashboard) {
+    let cols = RLayout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Length(20), Constraint::Min(20)])
+        .split(frame.area());
+
+    let items: Vec<ListItem> = panels
+        .iter()
+        .enumerate()
+        .map(|(i, p)| {
+            let mut st = Style::default();
+            if i == selected {
+                st = st.add_modifier(Modifier::REVERSED | Modifier::BOLD);
+            }
+            ListItem::new(Line::styled(format!(" {} ", p.title()), st))
+        })
+        .collect();
+    frame.render_widget(
+        List::new(items).block(Block::default().borders(Borders::ALL).title("gpp")),
+        cols[0],
+    );
+
+    // Guard against an out-of-range index (e.g. an empty preset).
+    let Some(&panel) = panels.get(selected) else {
+        return;
+    };
+    let body = dash.panel_lines(panel).join("\n");
+    frame.render_widget(
+        Paragraph::new(body).block(Block::default().borders(Borders::ALL).title(format!(
+            " {} — q quit · Tab next · r refresh ",
+            panel.title()
+        ))),
+        cols[1],
+    );
+}
+
 /// Run the interactive UI. Requires a TTY (the event loop). `panel` is the
 /// initially focused panel; `live` enables periodic auto-refresh.
 pub fn run(
@@ -223,37 +301,7 @@ pub fn run(
     let mut terminal = ratatui::init();
     let result = (|| -> std::io::Result<()> {
         loop {
-            terminal.draw(|frame| {
-                let cols = RLayout::default()
-                    .direction(Direction::Horizontal)
-                    .constraints([Constraint::Length(20), Constraint::Min(20)])
-                    .split(frame.area());
-
-                let items: Vec<ListItem> = panels
-                    .iter()
-                    .enumerate()
-                    .map(|(i, p)| {
-                        let mut st = Style::default();
-                        if i == selected {
-                            st = st.add_modifier(Modifier::REVERSED | Modifier::BOLD);
-                        }
-                        ListItem::new(Line::styled(format!(" {} ", p.title()), st))
-                    })
-                    .collect();
-                frame.render_widget(
-                    List::new(items).block(Block::default().borders(Borders::ALL).title("gpp")),
-                    cols[0],
-                );
-
-                let panel = panels[selected];
-                let body = dash.panel_lines(panel).join("\n");
-                frame.render_widget(
-                    Paragraph::new(body).block(Block::default().borders(Borders::ALL).title(
-                        format!(" {} — q quit · Tab next · r refresh ", panel.title()),
-                    )),
-                    cols[1],
-                );
-            })?;
+            terminal.draw(|frame| draw(frame, &panels, selected, &dash))?;
 
             let timeout = if live {
                 Duration::from_millis(1000)
@@ -262,19 +310,12 @@ pub fn run(
             };
             if event::poll(timeout)? {
                 if let Event::Key(k) = event::read()? {
-                    match k.code {
-                        KeyCode::Char('q') | KeyCode::Esc => break,
-                        KeyCode::Char('c') if k.modifiers.contains(KeyModifiers::CONTROL) => {
-                            break;
-                        }
-                        KeyCode::Tab | KeyCode::Down | KeyCode::Char('j') => {
-                            selected = (selected + 1) % panels.len();
-                        }
-                        KeyCode::BackTab | KeyCode::Up | KeyCode::Char('k') => {
-                            selected = (selected + panels.len() - 1) % panels.len();
-                        }
-                        KeyCode::Char('r') => dash = Dashboard::collect(gpp_dir),
-                        _ => {}
+                    match Action::from_key(k.code, k.modifiers) {
+                        Action::Quit => break,
+                        Action::Next => selected = step_selection(selected, panels.len(), true),
+                        Action::Prev => selected = step_selection(selected, panels.len(), false),
+                        Action::Refresh => dash = Dashboard::collect(gpp_dir),
+                        Action::Ignore => {}
                     }
                 }
             } else if live {
@@ -305,6 +346,100 @@ mod tests {
         assert_eq!(Panel::parse("graphex"), Some(Panel::Graphex));
         assert_eq!(LayoutPreset::parse("review"), Some(LayoutPreset::Review));
         assert_eq!(Panel::parse("nope"), None);
+    }
+
+    #[test]
+    fn panel_metadata_round_trips() {
+        // Every panel parses back from a lowercased title, and `all()` covers
+        // exactly the parseable set in order.
+        for p in Panel::all() {
+            let key = p.title().to_ascii_lowercase();
+            assert_eq!(Panel::parse(&key), Some(*p), "round-trip for {key}");
+        }
+        assert_eq!(Panel::all().len(), 8);
+        assert_eq!(Panel::parse("Timeline"), None); // case-sensitive by design
+        for preset in [
+            LayoutPreset::Default,
+            LayoutPreset::Minimal,
+            LayoutPreset::Review,
+            LayoutPreset::Monitoring,
+        ] {
+            // Preset panels are always a subset of the full set.
+            for p in preset.panels() {
+                assert!(Panel::all().contains(&p));
+            }
+        }
+        assert_eq!(LayoutPreset::parse("nope"), None);
+    }
+
+    #[test]
+    fn keymap_resolves_every_binding() {
+        use Action::*;
+        let plain = KeyModifiers::NONE;
+        assert_eq!(Action::from_key(KeyCode::Char('q'), plain), Quit);
+        assert_eq!(Action::from_key(KeyCode::Esc, plain), Quit);
+        assert_eq!(
+            Action::from_key(KeyCode::Char('c'), KeyModifiers::CONTROL),
+            Quit
+        );
+        // 'c' without CONTROL is not a quit.
+        assert_eq!(Action::from_key(KeyCode::Char('c'), plain), Ignore);
+        for k in [KeyCode::Tab, KeyCode::Down, KeyCode::Char('j')] {
+            assert_eq!(Action::from_key(k, plain), Next);
+        }
+        for k in [KeyCode::BackTab, KeyCode::Up, KeyCode::Char('k')] {
+            assert_eq!(Action::from_key(k, plain), Prev);
+        }
+        assert_eq!(Action::from_key(KeyCode::Char('r'), plain), Refresh);
+        assert_eq!(Action::from_key(KeyCode::Char('z'), plain), Ignore);
+    }
+
+    #[test]
+    fn step_selection_wraps_both_ways() {
+        // Forward from the last index wraps to 0; back from 0 wraps to last.
+        assert_eq!(step_selection(0, 3, true), 1);
+        assert_eq!(step_selection(2, 3, true), 0);
+        assert_eq!(step_selection(0, 3, false), 2);
+        assert_eq!(step_selection(2, 3, false), 1);
+        // A single panel always stays put; an empty set is a no-op.
+        assert_eq!(step_selection(0, 1, true), 0);
+        assert_eq!(step_selection(0, 1, false), 0);
+        assert_eq!(step_selection(5, 0, true), 5);
+    }
+
+    #[test]
+    fn panel_lines_reflect_populated_state() {
+        // Construct a dashboard directly (public fields) to exercise the
+        // content branches without standing up stores.
+        let dash = Dashboard {
+            timeline_entries: 7,
+            unpromoted: 3,
+            changesets: 4,
+            head_short: Some("abcd123".into()),
+            agents: vec![("bot@x".into(), 87.5, "trusted".into())],
+            open_anomalies: 2,
+            cost_usd: 1.2345,
+            lines_changed: 42,
+            pending_reviews: 1,
+        };
+        assert!(dash.panel_lines(Panel::Timeline)[0].contains("entries:     7"));
+        assert!(dash.panel_lines(Panel::History)[1].contains("cs:abcd123"));
+        let agents = dash.panel_lines(Panel::Agents);
+        assert!(agents[0].contains("bot@x") && agents[0].contains("87.5"));
+        assert!(dash.panel_lines(Panel::Cost)[0].contains("$1.2345"));
+        assert!(dash.panel_lines(Panel::Anomalies)[0].contains("2"));
+        assert!(dash.panel_lines(Panel::Reviews)[0].contains("1"));
+
+        // Empty agents list renders the placeholder, not an empty vec.
+        let empty = Dashboard::default();
+        assert_eq!(
+            empty.panel_lines(Panel::Agents),
+            vec!["(no agents tracked)"]
+        );
+        assert!(empty.panel_lines(Panel::History)[1].contains("(none)"));
+        // Static-text panels are always present.
+        assert!(!empty.panel_lines(Panel::Graphex).is_empty());
+        assert!(!empty.panel_lines(Panel::Inbox).is_empty());
     }
 
     #[test]
