@@ -1,11 +1,12 @@
 # TODO — gpp (git++) Next Work
 
-Status snapshot: all 9 phases (0–8) implemented; 123 workspace tests pass;
-clippy/fmt clean (verified 2026-05-18). This document is the single
-prioritized backlog for what comes next. It consolidates the `[~]` partial
-items and "Implementation notes / deviations" deferrals scattered through
-[`ROADMAP.md`](ROADMAP.md), plus newly identified hardening work, into one
-actionable list.
+Status snapshot: all 9 phases (0–8) implemented; 133 workspace tests pass;
+clippy/fmt clean; line coverage 65.70% (verified 2026-06-23). P0.1–P0.3
+are now done — the remaining P0 work is the test-depth/integration pass
+(P0.4–P0.5). This document is the single prioritized backlog for what
+comes next. It consolidates the `[~]` partial items and "Implementation
+notes / deviations" deferrals scattered through [`ROADMAP.md`](ROADMAP.md),
+plus newly identified hardening work, into one actionable list.
 
 Legend: **P0** = correctness/hardening before any real adoption ·
 **P1** = deferred features promised in the roadmap ·
@@ -20,23 +21,42 @@ These are not new features; they are gaps between "milestone met" and
 user about protection outranks an internal quality gap; small high-risk
 fixes outrank large infra efforts; measurement precedes the work it gates.
 
-**▶ Next:** P0.1 (policy enforcement) — it's the only item where the
-current behavior is actively wrong, not just thin.
+**▶ Next:** P0.3 (coverage measurement in CI) — cheap, and it makes the
+P0.4 depth pass data-driven instead of aspirational.
 
-- [ ] **P0.1 — Policy enforcement points beyond promote** (Phase 4
-  deviation). Wire the existing `PolicySet` API into timeline-capture
-  (warn) and sync (block). *Highest risk:* a policy configured to block
-  on sync silently does nothing today, so a user who set it up believes
-  they're protected when they aren't. API is ready; this is wiring +
-  tests. Small.
-- [ ] **P0.2 — Relay pre-handshake key rejection** (Phase 7 deviation).
-  `--auth-keys` is advisory only; add the `gpp-sync` hook to reject
-  unknown static keys before the Noise handshake completes. Security
-  gap, but bounded — the relay is zero-knowledge and TOFU-pinned, so an
-  unknown peer still can't read content. Small.
-- [ ] **P0.3 — Add coverage measurement to CI** (`cargo llvm-cov`).
-  Cheap, and it makes P0.4's target objective instead of aspirational —
-  do it before, not after, the depth pass so the work is data-driven.
+- [x] **P0.1 — Policy enforcement points beyond promote** (Phase 4
+  deviation). Done 2026-06-23 (`gpp-cli`). Wired the existing `PolicySet`
+  API into the two points that were previously no-ops: timeline-capture
+  now surfaces violations as non-fatal warnings (`warn`; block-severity
+  hits are flagged "will block promote/sync"), and `gpp sync` /
+  `gpp sync serve` / `gpp sync peer` now run a `block`-severity gate over
+  every branch-tip snapshot — the exact content `build_push` transmits —
+  before a byte leaves the repo, aborting on any block violation.
+  Catches the real scenario the promote-time check can't: content that
+  reached a tip without passing the *current* policy (installed after the
+  fact, or pulled in from a peer). The timeline `watch` callback now
+  receives `&Timeline` so the CLI can scan the just-captured snapshot.
+  Tests: `crates/gpp-cli/tests/policy_enforcement.rs` (5 e2e: timeline
+  warn + clean, sync block via `sync`/`serve`, clean-sync-allowed).
+- [x] **P0.2 — Relay pre-handshake key rejection** (Phase 7 deviation).
+  Done 2026-06-23 (`gpp-sync` + `gpp-relay`). Added
+  `gpp_sync::serve_with_auth(.., allow: Option<&[String]>)` (and a new
+  `Error::Unauthorized`); `serve` delegates with `None` (TOFU-only,
+  unchanged). The relay now passes its `--auth-keys` allowlist through, so
+  a peer whose Noise static key is absent is rejected immediately after
+  the handshake — before the repo-id exchange, TOFU pin, or any object
+  data. (Noise XX only reveals the initiator's static key once the
+  handshake completes, so that is the earliest point the key is known;
+  the previous code checked it post-hoc, *after* fully serving the sync.)
+  Tests: `gpp-sync` unauthorized-rejected-before-data + authorized-accepted.
+- [x] **P0.3 — Add coverage measurement to CI** (`cargo llvm-cov`).
+  Done 2026-06-23. New `coverage` job in `.github/workflows/ci.yml`
+  (install via `taiki-e/install-action`, `--summary-only` to the log +
+  `--lcov` uploaded as the `coverage-lcov` artifact). Verified locally.
+  **Baseline (2026-06-23): 65.70% line / 62.85% region / 60.80% fn.**
+  Worst offenders for P0.4 to target: `gpp-relay/main.rs` 0% (binary,
+  no harness), `gpp-tui` 55%, `gpp-graphex/project.rs` 48%,
+  `gpp-graphex/object.rs` 58% / `store.rs` 63%, `gpp-remote` 67%.
 - [ ] **P0.4 — Test depth pass.** Bring smoke-only crates up to the
   core-crate bar. Add a `tests/` integration dir per crate exercising
   the real store/db path (not just inline unit tests). Priority order by

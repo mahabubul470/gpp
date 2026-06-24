@@ -101,6 +101,17 @@ pub fn sync(args: &SyncArgs, repo_override: Option<&Path>) -> Result<()> {
         include_graphex: args.include_graphex,
     };
 
+    // `block`-severity content policies gate any action that transmits local
+    // content to a peer, before a single byte leaves the repo. Peer admin
+    // (add/remove/status) moves no content, so it is exempt.
+    let transmits = matches!(
+        &args.action,
+        None | Some(SyncSub::Serve { .. }) | Some(SyncSub::Peer { .. })
+    );
+    if transmits && !args.graph_only {
+        crate::phase4::enforce_sync_policies(&repo)?;
+    }
+
     match &args.action {
         Some(SyncSub::Add { name, address }) => {
             let mut peers = load_peers(&repo);

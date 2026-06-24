@@ -18,6 +18,8 @@ pub enum Error {
         "peer key changed for {0:?} — refusing (TOFU). Remove it from .gpp/sync/known_peers to re-trust."
     )]
     PeerKeyChanged(String),
+    #[error("unauthorized peer static key {0} — not in the authorized-keys allowlist")]
+    Unauthorized(String),
     #[error("{0}")]
     Other(String),
 }

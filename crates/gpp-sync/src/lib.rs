@@ -374,14 +374,40 @@ pub fn connect(addr: &str, gpp: &Path, peer_name: &str, opts: SyncOptions) -> Re
 }
 
 /// Handle one inbound sync on an accepted stream (responder role).
+/// Trust-on-first-use only; see [`serve_with_auth`] to additionally gate on an
+/// authorized-keys allowlist.
 pub fn serve(
     stream: TcpStream,
     gpp: &Path,
     peer_name: &str,
     opts: SyncOptions,
 ) -> Result<SyncReport> {
+    serve_with_auth(stream, gpp, peer_name, opts, None)
+}
+
+/// Like [`serve`], but reject any peer whose Noise static key is not in
+/// `allow` *immediately after the handshake* — before the repo-id exchange,
+/// TOFU pinning, or any object data. `None` disables the check (TOFU only).
+///
+/// Noise XX only reveals the initiator's static key once the handshake
+/// completes, so this is the earliest point the key is known; rejecting here
+/// means an unauthorized peer transfers no application data. Keys are compared
+/// in the lowercase-hex form written to `known_peers`, case-insensitively.
+pub fn serve_with_auth(
+    stream: TcpStream,
+    gpp: &Path,
+    peer_name: &str,
+    opts: SyncOptions,
+    allow: Option<&[String]>,
+) -> Result<SyncReport> {
     let (priv_, _) = ensure_identity(gpp)?;
     let mut t = Transport::respond(stream, &priv_)?;
+    if let Some(allow) = allow {
+        let key = hex(&t.remote_static);
+        if !allow.iter().any(|k| k.trim().eq_ignore_ascii_case(&key)) {
+            return Err(Error::Unauthorized(key));
+        }
+    }
     tofu(gpp, peer_name, &t.remote_static)?;
     handshake_hello(&mut t, gpp, false)?;
 
@@ -487,6 +513,75 @@ mod tests {
         let rb = RefStore::open(&gb);
         assert_eq!(rb.read_ref("main").unwrap(), Some(ob));
         assert_eq!(rb.read_ref("main.fork.A").unwrap(), Some(oa));
+    }
+
+    #[test]
+    fn unauthorized_static_key_is_rejected_before_data() {
+        let a = tempfile::tempdir().unwrap();
+        let b = tempfile::tempdir().unwrap();
+        let ga = init_repo(a.path());
+        let gb = init_repo(b.path());
+        let id = ensure_repo_id(&ga).unwrap();
+        set_repo_id(&gb, &id).unwrap();
+
+        // Give A a tip so that, if the gate failed open, objects would flow.
+        let oa = ObjectStore::open(&ga)
+            .write(&gpp_core::Blob::new(b"secret".to_vec()))
+            .unwrap();
+        RefStore::open(&ga).write_ref("main", oa).unwrap();
+
+        // Allowlist contains some other key, never A's.
+        let allow = vec!["00".repeat(32)];
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap().to_string();
+        let gb2 = gb.clone();
+        let server = std::thread::spawn(move || {
+            let (s, _) = listener.accept().unwrap();
+            serve_with_auth(s, &gb2, "A", SyncOptions::default(), Some(&allow))
+        });
+        let r = connect(&addr, &ga, "B", SyncOptions::default());
+        let srv = server.join().unwrap();
+
+        assert!(matches!(srv, Err(Error::Unauthorized(_))));
+        assert!(
+            r.is_err(),
+            "client should not complete against a rejecting server"
+        );
+        // Nothing was received: the rejection precedes the repo-id hello.
+        assert!(ObjectStore::open(&gb).read::<gpp_core::Blob>(&oa).is_err());
+        assert!(RefStore::open(&gb).read_ref("main").unwrap().is_none());
+    }
+
+    #[test]
+    fn authorized_static_key_is_accepted() {
+        let a = tempfile::tempdir().unwrap();
+        let b = tempfile::tempdir().unwrap();
+        let ga = init_repo(a.path());
+        let gb = init_repo(b.path());
+        let id = ensure_repo_id(&ga).unwrap();
+        set_repo_id(&gb, &id).unwrap();
+
+        let oa = ObjectStore::open(&ga)
+            .write(&gpp_core::Blob::new(b"hello".to_vec()))
+            .unwrap();
+        RefStore::open(&ga).write_ref("main", oa).unwrap();
+
+        // A's public static key, in the same hex form `known_peers` uses.
+        let (_, pub_a) = ensure_identity(&ga).unwrap();
+        let allow = vec![hex(&pub_a)];
+
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap().to_string();
+        let gb2 = gb.clone();
+        let server = std::thread::spawn(move || {
+            let (s, _) = listener.accept().unwrap();
+            serve_with_auth(s, &gb2, "A", SyncOptions::default(), Some(&allow)).unwrap()
+        });
+        connect(&addr, &ga, "B", SyncOptions::default()).unwrap();
+        let srv = server.join().unwrap();
+
+        assert_eq!(srv.objects_received, 1);
+        assert_eq!(RefStore::open(&gb).read_ref("main").unwrap(), Some(oa));
     }
 
     #[test]

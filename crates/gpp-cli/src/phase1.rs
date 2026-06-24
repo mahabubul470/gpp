@@ -229,7 +229,12 @@ pub fn timeline(args: &TimelineArgs, repo_override: Option<&Path>, json: bool) -
                 AuthorKind::Human,
                 &author.identity,
                 Duration::from_millis(gpp_timeline::DEFAULT_DEBOUNCE_MS),
-                |id| println!("captured timeline entry #{id}"),
+                |id, tl| {
+                    println!("captured timeline entry #{id}");
+                    if let Ok(tree) = tl.snapshot_tree() {
+                        crate::phase4::warn_content_policies(&repo, &tree, tl.store());
+                    }
+                },
             )?;
             Ok(())
         }
@@ -253,7 +258,13 @@ pub fn timeline(args: &TimelineArgs, repo_override: Option<&Path>, json: bool) -
         }
         Some(TimelineAction::Export { path }) => {
             // Capture first so an export reflects the latest state.
-            tl.capture(AuthorKind::Human, &config_author().identity, Source::Cli)?;
+            if tl
+                .capture(AuthorKind::Human, &config_author().identity, Source::Cli)?
+                .is_some()
+                && let Ok(tree) = tl.snapshot_tree()
+            {
+                crate::phase4::warn_content_policies(&repo, &tree, tl.store());
+            }
             let entries = tl.entries(&build_filter(args)?)?;
             let arr: Vec<serde_json::Value> = entries.iter().map(entry_json).collect();
             let body = serde_json::to_string_pretty(&serde_json::json!(arr))?;
@@ -268,7 +279,13 @@ pub fn timeline(args: &TimelineArgs, repo_override: Option<&Path>, json: bool) -
         }
         // default listing and `search` share the same filtered view
         None | Some(TimelineAction::Search) => {
-            tl.capture(AuthorKind::Human, &config_author().identity, Source::Cli)?;
+            if tl
+                .capture(AuthorKind::Human, &config_author().identity, Source::Cli)?
+                .is_some()
+                && let Ok(tree) = tl.snapshot_tree()
+            {
+                crate::phase4::warn_content_policies(&repo, &tree, tl.store());
+            }
             let entries = tl.entries(&build_filter(args)?)?;
             if json {
                 let arr: Vec<serde_json::Value> = entries.iter().map(entry_json).collect();
