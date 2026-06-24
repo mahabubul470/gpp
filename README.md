@@ -14,7 +14,7 @@ full specification (architecture, data model, CLI, protocols, roadmap), and
 for the per-phase deliverables and documented deviations, and
 [`docs/TODO.md`](docs/TODO.md) for the prioritized backlog of what's next.
 
-Verified 2026-05-18: **123 workspace tests pass**, `cargo clippy` and
+Verified 2026-06-23: **133 workspace tests pass**, `cargo clippy` and
 `cargo fmt` clean, full workspace builds. No stub crates remain — every
 crate has a working implementation.
 
@@ -37,7 +37,7 @@ top item in [`docs/TODO.md`](docs/TODO.md).
 | Graphex | `gpp-graphex` | Encrypted (age + AES-GCM) knowledge graph, tier-gated projection, query, lifecycle, audit |
 | SDK / MCP | `gpp-sdk` | `AgentSession`; `gpp mcp-server --stdio` (JSON-RPC MCP) |
 | Trust | `gpp-trust` | Reputation scoring, status transitions, overrides, events |
-| Policy | `gpp-policy` | `.policy` TOML rules, promotion-time enforcement, built-in templates |
+| Policy | `gpp-policy` | `.policy` TOML rules, enforcement at promote (block) + timeline (warn) + sync (block), built-in templates |
 | Cost | `gpp-cost` | Per-changeset token/$ records, budgets, efficiency |
 | Anomaly | `gpp-anomaly` | Scope/burst/size detection, resolution workflow |
 | Sync | `gpp-sync` | Noise_XX P2P; objects/refs/policies/graphex; fork-preserve |

@@ -5,10 +5,12 @@
 //! gpp-relay --port 9473 --storage /data/gpp --auth-keys /etc/gpp/authorized_keys
 //! ```
 //!
-//! It accepts inbound syncs (delegating to `gpp_sync::serve`, which does the
-//! Noise handshake, repo-id gate and TOFU). Stored objects stay encrypted —
-//! the relay never has tier keys. A `GET /health` endpoint on `port+1`
-//! returns object/peer counts for liveness checks.
+//! It accepts inbound syncs (delegating to `gpp_sync::serve_with_auth`, which
+//! does the Noise handshake, repo-id gate and TOFU). When `--auth-keys` is
+//! given, a peer whose static key is not on the allowlist is rejected right
+//! after the handshake, before any repo data is exchanged. Stored objects stay
+//! encrypted — the relay never has tier keys. A `GET /health` endpoint on
+//! `port+1` returns object/peer counts for liveness checks.
 #![forbid(unsafe_code)]
 
 use std::io::{Read, Write};
@@ -100,13 +102,14 @@ fn main() -> Result<()> {
         let gpp = Arc::clone(&gpp);
         let allow = allow.clone();
         std::thread::spawn(move || {
-            match gpp_sync::serve(stream, &gpp, &who, gpp_sync::SyncOptions::default()) {
+            match gpp_sync::serve_with_auth(
+                stream,
+                &gpp,
+                &who,
+                gpp_sync::SyncOptions::default(),
+                allow.as_deref(),
+            ) {
                 Ok(r) => {
-                    if let Some(allowed) = &allow {
-                        // Post-hoc audit: gpp_sync pins the key via TOFU into
-                        // known_peers; warn if it is not on the allowlist.
-                        let _ = allowed; // (advisory; see ROADMAP notes)
-                    }
                     tracing::info!(
                         "sync from {who}: ↓{} objects, {} refs, {} policies",
                         r.objects_received,
@@ -114,7 +117,7 @@ fn main() -> Result<()> {
                         r.policies_added
                     );
                 }
-                Err(e) => tracing::warn!("sync from {who} failed: {e}"),
+                Err(e) => tracing::warn!("sync from {who} rejected/failed: {e}"),
             }
         });
     }

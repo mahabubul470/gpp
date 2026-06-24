@@ -158,6 +158,122 @@ pub(crate) fn enforce_content_policies(
     Ok(())
 }
 
+/// Surface content-policy issues for the working snapshot at `tree` — the
+/// `warn` enforcement point (timeline capture). Nothing here aborts: `warn`
+/// hits are printed, `block` hits are printed too but flagged as "will block
+/// promote/sync", and `audit` hits are logged. Best-effort: any policy-load
+/// or read error is logged and swallowed, never surfaced to the user mid-edit.
+/// No-op when no policies are installed.
+pub(crate) fn warn_content_policies(repo: &Repo, tree: &Hash, store: &ObjectStore) {
+    let set = match PolicySet::load_dir(&policies_dir(repo)) {
+        Ok(s) if !s.is_empty() => s,
+        Ok(_) => return,
+        Err(e) => {
+            tracing::warn!("loading policies for timeline warn: {e}");
+            return;
+        }
+    };
+    let snapshot = match flatten(store, tree) {
+        Ok(s) => s,
+        Err(e) => {
+            tracing::warn!("policy scan: {e}");
+            return;
+        }
+    };
+    for (path, hash) in &snapshot {
+        let Ok(blob) = store.read::<Blob>(hash) else {
+            continue;
+        };
+        let Ok(text) = String::from_utf8(blob.content) else {
+            continue; // binary: skip content rules
+        };
+        for v in set.check_content(path, &text) {
+            match v.severity {
+                Severity::Block => eprintln!(
+                    "policy warning [{}/{}]: {} @ {} (will block promote/sync)",
+                    v.policy, v.rule, v.message, v.location
+                ),
+                Severity::Warn => eprintln!(
+                    "policy warning [{}/{}]: {} @ {}",
+                    v.policy, v.rule, v.message, v.location
+                ),
+                Severity::Audit => {
+                    tracing::info!(policy=%v.policy, rule=%v.rule, "policy audit: {}", v.message)
+                }
+            }
+        }
+    }
+}
+
+/// Enforce content policies over everything a sync could transmit — the
+/// `block` enforcement point — *before* any bytes leave the repo. Scans the
+/// flattened snapshot of every local branch tip (the same set `build_push`
+/// sends); a single `block` violation aborts the sync. `warn`/`audit` are
+/// surfaced but allowed. No-op when no policies are installed.
+///
+/// This matters even though promotion already blocks: content can reach a tip
+/// without passing the *current* policy — installed after the fact, or pulled
+/// in from a peer — and would otherwise be re-pushed onward unchecked.
+pub(crate) fn enforce_sync_policies(repo: &Repo) -> Result<()> {
+    let set =
+        PolicySet::load_dir(&policies_dir(repo)).map_err(|e| anyhow!("loading policies: {e}"))?;
+    if set.is_empty() {
+        return Ok(());
+    }
+    let store = ObjectStore::open(&repo.gpp_dir());
+    let refs = gpp_history::RefStore::open(&repo.gpp_dir());
+
+    // Union of (path -> distinct blob hashes) across every branch tip: the
+    // exact content `build_push` would offer a peer. Dedup blobs so identical
+    // content reachable from several tips is only scanned (and reported) once.
+    let mut snapshot: BTreeMap<String, std::collections::BTreeSet<Hash>> = BTreeMap::new();
+    for b in refs.list().map_err(|e| anyhow!("listing branches: {e}"))? {
+        let Some(tip) = b.tip else {
+            continue;
+        };
+        let cs: Changeset = store
+            .read(&tip)
+            .with_context(|| format!("reading changeset {}", tip.to_base32()))?;
+        for (path, hash) in flatten(&store, &cs.tree)? {
+            snapshot.entry(path).or_default().insert(hash);
+        }
+    }
+
+    let mut blocked = Vec::new();
+    for (path, hashes) in &snapshot {
+        for hash in hashes {
+            let Ok(blob) = store.read::<Blob>(hash) else {
+                continue;
+            };
+            let Ok(text) = String::from_utf8(blob.content) else {
+                continue; // binary: skip content rules
+            };
+            for v in set.check_content(path, &text) {
+                match v.severity {
+                    Severity::Block => blocked.push(format!(
+                        "  [{}/{}] {} @ {}",
+                        v.policy, v.rule, v.message, v.location
+                    )),
+                    Severity::Warn => eprintln!(
+                        "policy warning [{}/{}]: {} @ {}",
+                        v.policy, v.rule, v.message, v.location
+                    ),
+                    Severity::Audit => {
+                        tracing::info!(policy=%v.policy, rule=%v.rule, "policy audit: {}", v.message)
+                    }
+                }
+            }
+        }
+    }
+    if !blocked.is_empty() {
+        bail!(
+            "sync blocked by policy:\n{}\n(fix the violations or adjust the policy)",
+            blocked.join("\n")
+        );
+    }
+    Ok(())
+}
+
 /// Record trust / cost / anomaly signals *after* a successful promotion.
 /// Best-effort: a recording failure is logged, never fatal to the promote.
 pub(crate) fn record_promotion(

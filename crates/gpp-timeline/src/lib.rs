@@ -126,7 +126,9 @@ impl Timeline {
     }
 
     /// Watch the working tree and capture after each settled burst,
-    /// invoking `on_entry` with any new entry id. Blocks until interrupted.
+    /// invoking `on_entry` with any new entry id and a reference to `self`
+    /// (so callers can inspect the just-captured snapshot, e.g. for policy
+    /// checks). Blocks until interrupted.
     pub fn watch<F>(
         &mut self,
         author_kind: AuthorKind,
@@ -135,12 +137,12 @@ impl Timeline {
         mut on_entry: F,
     ) -> Result<()>
     where
-        F: FnMut(i64),
+        F: FnMut(i64, &Timeline),
     {
         let root = self.root.clone();
         watch::watch_loop(&root, debounce, || {
             if let Some(id) = self.capture(author_kind, author_id, Source::FsWatch)? {
-                on_entry(id);
+                on_entry(id, self);
             }
             Ok(())
         })
