@@ -6,13 +6,11 @@ about actually publishing. Ordered — earlier items unblock later ones.
 
 ## 1. Repo settings (github.com/mahabubul470/gpp → ⚙ About)
 
-- [ ] **Description:** `AI-native version control in Rust — continuous capture, encrypted knowledge graph, agent governance`
-- [ ] **Website:** `https://mahabubul470.github.io/gpp/`
-- [ ] **Topics:** `version-control`, `rust`, `ai-agents`, `knowledge-graph`, `mcp`, `developer-tools`, `git`
-- [ ] Settings → Pages: confirm the Pages workflow is enabled and the
-      site deployed after the redesign push (check the URL renders, and
-      that a shared link unfurls with the new OG image — test in a
-      Slack/Discord DM to yourself).
+- [x] **Description / Website / Topics** — set 2026-07-12 via
+      `gh repo edit` (description, homepage, and all 7 topics verified).
+- [ ] Confirm the deployed site renders as intended (Pages deploy is
+      green), and that a shared link unfurls with the new OG image —
+      test in a Slack/Discord DM to yourself.
 
 ## 2. First release (v0.1.0)
 
