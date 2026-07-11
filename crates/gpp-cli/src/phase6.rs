@@ -181,7 +181,7 @@ pub fn review(args: &ReviewArgs, repo_override: Option<&Path>) -> Result<()> {
             for r in rows {
                 println!(
                     "{:<18} {:<10} {}  by {}",
-                    &r.changeset,
+                    r.changeset,
                     r.status.as_str(),
                     &r.id[..12.min(r.id.len())],
                     r.requested_by
