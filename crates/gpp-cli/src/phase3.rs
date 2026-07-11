@@ -26,7 +26,7 @@ fn discover(repo_override: Option<&Path>) -> Result<Repo> {
     Repo::discover(&start)
 }
 
-fn config_author(repo: &Repo) -> Author {
+pub(crate) fn config_author(repo: &Repo) -> Author {
     let _ = repo;
     if let Ok(path) = config::global_config_path() {
         let doc = config::load_doc(&path).unwrap_or(toml::Value::Table(Default::default()));
@@ -117,7 +117,7 @@ pub fn keys(args: &KeysArgs, repo_override: Option<&Path>) -> Result<()> {
 // gpp graphex
 // ---------------------------------------------------------------------------
 
-fn open_graph(repo: &Repo) -> Result<GraphStore> {
+pub(crate) fn open_graph(repo: &Repo) -> Result<GraphStore> {
     GraphStore::open(&repo.gpp_dir())
         .map_err(|e| anyhow!("{e} (run `gpp keys generate` or `gpp init --graphex`)"))
 }
@@ -245,6 +245,7 @@ pub fn graphex(args: &GraphexArgs, repo_override: Option<&Path>, json: bool) -> 
                 confidence: 1.0,
                 validated_at: Some(t),
                 source: NodeSource::HumanCreated,
+                belief: None,
             };
             let id = gs.put_node(&node, NodeState::Active)?;
             println!("Added {} node {name:?} (cs:{})", node_type, id.short());
@@ -403,6 +404,7 @@ pub fn graphex(args: &GraphexArgs, repo_override: Option<&Path>, json: bool) -> 
                     source: NodeSource::AutoInferred {
                         from_changeset: from,
                     },
+                    belief: None,
                 };
                 let id = gs.put_node(&node, NodeState::Proposed)?;
                 gs.write_proposal(&id, &format!("auto-inferred: {}", s.reason))?;
@@ -452,7 +454,7 @@ fn project_name(repo: &Repo) -> String {
         .unwrap_or_else(|| "project".into())
 }
 
-fn default_tier(repo: &Repo) -> AccessTier {
+pub(crate) fn default_tier(repo: &Repo) -> AccessTier {
     config::load_doc(&repo.config_path())
         .ok()
         .and_then(|d| {

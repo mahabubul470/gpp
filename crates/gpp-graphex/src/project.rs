@@ -83,6 +83,7 @@ pub fn project(
     let mut conventions = Vec::new();
     let mut glossary = Vec::new();
     let mut decisions = Vec::new();
+    let mut beliefs = Vec::new();
     let mut accessed = Vec::new();
 
     for id in &ids {
@@ -112,6 +113,14 @@ pub fn project(
             NodeType::Convention => conventions.push(node.description),
             NodeType::Glossary => glossary.push((node.name, node.description)),
             NodeType::Decision => decisions.push((node.created_at, node.description)),
+            NodeType::Belief => {
+                let status = node
+                    .belief
+                    .as_ref()
+                    .map(|b| b.status)
+                    .unwrap_or(crate::belief::BeliefStatus::Active);
+                beliefs.push((node.description, status));
+            }
             _ => conventions.push(format!("{}: {}", node.name, node.description)),
         }
     }
@@ -159,6 +168,26 @@ pub fn project(
         let mut s = String::from("\n### Recent Decisions\n");
         for (ts, d) in &decisions {
             s.push_str(&format!("- {}: {d}\n", ymd(*ts)));
+        }
+        push_section(&mut text, &mut truncated, s);
+    }
+    if !beliefs.is_empty() {
+        let mut s = String::from("\n### Beliefs\n");
+        for (claim, status) in &beliefs {
+            use crate::belief::BeliefStatus;
+            match status {
+                BeliefStatus::Active | BeliefStatus::Reaffirmed => {
+                    s.push_str(&format!("- {claim}\n"));
+                }
+                BeliefStatus::StaleCandidate => {
+                    s.push_str(&format!("- {claim} ⚠ [stale candidate — re-verify]\n"));
+                }
+                BeliefStatus::Invalidated => {
+                    s.push_str(&format!(
+                        "- {claim} ✗ [INVALIDATED — do not rely on this]\n"
+                    ));
+                }
+            }
         }
         push_section(&mut text, &mut truncated, s);
     }

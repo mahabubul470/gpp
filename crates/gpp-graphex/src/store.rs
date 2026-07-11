@@ -492,6 +492,12 @@ impl GraphStore {
         &self.keys
     }
 
+    /// The repo object store this graph reads/writes (shared `.gpp/objects/`
+    /// — the same store that holds changesets, trees and blobs).
+    pub fn objects(&self) -> &ObjectStore {
+        &self.objects
+    }
+
     // ---- sync (OR-Set, zero-knowledge) ----------------------------------
 
     /// Export the node + edge index for sync. Encrypted content is *not*
@@ -591,5 +597,6 @@ pub fn active_node(
         confidence: 1.0,
         validated_at: None,
         source: crate::object::NodeSource::HumanCreated,
+        belief: None,
     }
 }

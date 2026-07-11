@@ -150,6 +150,22 @@ bidirectional platform sync, then live dependency intelligence.
   promote. Tests: `gpp-graphex` (`module_roots`), `gpp-review`
   (merge/empty policy), `gpp-cli/tests/reviewer_assignment.rs` (e2e: a
   graph owner with no RBAC role is notified on a change to her module).
+- [x] **Belief Bisect — VCS-native knowledge staleness** (`gpp-graphex`,
+  `gpp-diff`, `gpp-core`, `gpp-cli`). Done 2026-07-11 (see
+  [`WORKLOG.md`](WORKLOG.md)). Graphex `Belief` nodes (claim + scope +
+  evidence spans anchored at a changeset) plus a deterministic staleness
+  engine: scope-intersecting commits mark `StaleCandidate`;
+  evidence-span content change/deletion marks `Invalidated` at the
+  culprit changeset, with drift-adjusted spans and tree-sitter symbol
+  refinement. CLI: `gpp belief add/log/at/stale/bisect/reaffirm` (all
+  `--json`); beliefs surface in agent projections with staleness flags.
+  Zero LLM/network on the core path (`SemanticInvalidator` trait stub is
+  the v2 seam). Tests: engine unit suite + `gpp-cli/tests/
+  belief_bisect.rs` (6 e2e, deterministic synthetic refactor). Demo:
+  `demos/belief-bisect/` — axum 0.6→0.7 through the git bridge; all 4
+  invalidated beliefs bisect to changelog-documented breaking commits
+  (#1751/#1868), control belief survives. *Open:* asciinema capture
+  (script ready; tool not installed).
 - [ ] **Semantic-diff-driven Graphex inference** (Phase 3 deviation).
   Auto-inference currently keys off changed file *paths*; drive richer
   edge inference from the semantic diff.

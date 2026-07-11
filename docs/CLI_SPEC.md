@@ -267,6 +267,54 @@ Examples:
   gpp graphex federation add --project project-b --subgraph "org-conventions"
 ```
 
+### gpp belief
+
+VCS-native knowledge staleness: claims about the code anchored to a
+changeset with evidence spans, checked deterministically against history
+(diff intersection + blob hashes — no LLM, no network). Scope-only
+intersection yields `stale-candidate`; only evidence-span content change or
+deletion yields `invalidated`.
+
+```
+gpp belief <subcommand> [flags]
+
+Subcommands:
+  add                 Record a belief anchored at HEAD
+  log <id>            Full append-only status history of one belief
+  at <changeset>      The belief set as it stood at that changeset
+  stale               Scan all beliefs; list stale candidates / invalidated
+  bisect <id>         First commit that staled a belief + offending hunk
+  reaffirm <id>       Human re-check: reset to Reaffirmed, re-anchor at HEAD
+
+Flags (for add):
+  --claim <text>      The assertion (also the belief's identity)
+  --path <glob>       Scope path/glob (repeatable)
+  --symbol <P:NAME>   Scope symbol, tree-sitter refined (repeatable)
+  --evidence <P:A-B>  Evidence span, 1-based inclusive lines (repeatable)
+  --tier <tier>       Access tier (default from config)
+
+Flags (for stale):
+  --since <changeset> Only report triggering commits at/after this changeset
+
+Flags (for reaffirm):
+  --evidence <P:A-B>  Replace evidence spans (else re-hash existing ones)
+
+<id> is a belief node hash (full or unique prefix) or the exact claim text.
+All subcommands honor the global --json flag.
+
+Examples:
+  gpp belief add --claim "token expiry is 24h" --path 'auth/**' \
+      --evidence auth/token.rs:7-7
+  gpp belief add --claim "Router is generic over B" \
+      --symbol src/routing/mod.rs:Router
+  gpp belief stale
+  gpp belief bisect "token expiry is 24h"
+  gpp belief at cs:z2drrt73…            # time-travel to any changeset
+  gpp belief reaffirm 7aurbnah --evidence auth/session.rs:1-3
+```
+
+See `demos/belief-bisect/` for the synthetic and axum-0.6→0.7 demos.
+
 ## Trust Commands
 
 ### gpp trust

@@ -21,6 +21,6 @@ mod semantic;
 
 pub use error::{Error, Result};
 pub use lang::{Language, LanguageParser, detect_language, parser_for, parser_for_path};
-pub use line::{FileStat, stat, unified};
+pub use line::{FileStat, LineOp, LineOpKind, excerpt, line_ops, stat, unified};
 pub use parser::{Declaration, parse_declarations};
 pub use semantic::{ChangeOp, FileSemanticDiff, Move, detect_moves, render, semantic};

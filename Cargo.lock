@@ -1214,6 +1214,7 @@ dependencies = [
  "age",
  "blake3",
  "getrandom 0.2.17",
+ "globset",
  "gpp-core",
  "gpp-diff",
  "gpp-history",

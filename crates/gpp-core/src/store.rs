@@ -172,6 +172,39 @@ impl ObjectStore {
     }
 }
 
+/// Recursively flatten a stored [`Tree`](crate::Tree) into `path -> blob hash`
+/// (files and symlinks; directories are descended into).
+pub fn flatten_tree(
+    store: &ObjectStore,
+    root: &Hash,
+) -> Result<std::collections::BTreeMap<String, Hash>> {
+    fn walk(
+        store: &ObjectStore,
+        tree_hash: &Hash,
+        prefix: &str,
+        out: &mut std::collections::BTreeMap<String, Hash>,
+    ) -> Result<()> {
+        let tree: crate::Tree = store.read(tree_hash)?;
+        for e in tree.entries {
+            let path = if prefix.is_empty() {
+                e.name.clone()
+            } else {
+                format!("{prefix}/{}", e.name)
+            };
+            match e.kind {
+                crate::EntryKind::Directory => walk(store, &e.hash, &path, out)?,
+                crate::EntryKind::File | crate::EntryKind::Symlink => {
+                    out.insert(path, e.hash);
+                }
+            }
+        }
+        Ok(())
+    }
+    let mut out = std::collections::BTreeMap::new();
+    walk(store, root, "", &mut out)?;
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

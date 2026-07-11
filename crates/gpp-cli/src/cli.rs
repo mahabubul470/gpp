@@ -75,6 +75,8 @@ pub enum Command {
     Keys(KeysArgs),
     /// Query and manage the Graphex knowledge graph
     Graphex(GraphexArgs),
+    /// Track beliefs about the code and witness when history stales them
+    Belief(BeliefArgs),
     /// Run the MCP server for AI tool integration
     McpServer(McpServerArgs),
     /// Agent trust scores and behavioral RBAC
@@ -662,6 +664,63 @@ pub enum GraphexAction {
     Federation {
         #[command(subcommand)]
         action: FederationAction,
+    },
+}
+
+#[derive(Args)]
+pub struct BeliefArgs {
+    #[command(subcommand)]
+    pub action: BeliefAction,
+}
+
+#[derive(Subcommand)]
+pub enum BeliefAction {
+    /// Record a belief anchored at HEAD (claim + scope + evidence spans)
+    Add {
+        /// The assertion, e.g. "token expiry is 24h"
+        #[arg(long)]
+        claim: String,
+        /// Scope path or glob, repeatable (e.g. auth/**)
+        #[arg(long = "path")]
+        paths: Vec<String>,
+        /// Scope symbol as PATH:NAME, repeatable (tree-sitter refined)
+        #[arg(long = "symbol")]
+        symbols: Vec<String>,
+        /// Evidence span as PATH:START-END (1-based lines), repeatable
+        #[arg(long = "evidence")]
+        evidence: Vec<String>,
+        /// Access tier (default: repo default tier)
+        #[arg(long)]
+        tier: Option<String>,
+    },
+    /// Full status history of one belief
+    Log {
+        /// Belief id (full/short) or exact claim text
+        id: String,
+    },
+    /// The belief set as it stood at a changeset
+    At {
+        /// HEAD, a branch, or a changeset hash
+        changeset: String,
+    },
+    /// Scan all beliefs and list stale candidates / invalidated ones
+    Stale {
+        /// Only report triggering commits at/after this changeset
+        #[arg(long)]
+        since: Option<String>,
+    },
+    /// Find the first commit that staled a belief (and the offending hunk)
+    Bisect {
+        /// Belief id (full/short) or exact claim text
+        id: String,
+    },
+    /// Re-check a belief: reset to Reaffirmed, re-anchored at HEAD
+    Reaffirm {
+        /// Belief id (full/short) or exact claim text
+        id: String,
+        /// Replace evidence spans (PATH:START-END, repeatable)
+        #[arg(long = "evidence")]
+        evidence: Vec<String>,
     },
 }
 

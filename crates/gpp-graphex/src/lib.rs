@@ -9,6 +9,7 @@
 //! `docs/DATA_MODEL.md`, and `docs/ROADMAP.md` (Phase 3).
 #![forbid(unsafe_code)]
 
+mod belief;
 mod crypto;
 mod error;
 mod infer;
@@ -16,8 +17,13 @@ mod keys;
 mod object;
 mod project;
 mod query;
+mod stale;
 mod store;
 
+pub use belief::{
+    BeliefData, BeliefStatus, Cause, Evidence, Scope, SemanticInvalidator, StatusChange, SymbolRef,
+    add_belief, list_beliefs, resolve_belief, save_belief,
+};
 pub use error::{Error, Result};
 pub use infer::{Suggestion, module_root, module_roots, suggest_modules};
 pub use keys::{KeyStore, PASSPHRASE_ENV};
@@ -26,6 +32,7 @@ pub use object::{
 };
 pub use project::{Projection, project};
 pub use query::{Pattern, QueryOpts, ResolvedPath, run as query};
+pub use stale::{ScanHit, ancestors, scan, scan_and_record};
 pub use store::{EdgeIndexRow, GraphStore, NodeIndexRow, NodeMeta, active_node};
 
 #[cfg(test)]

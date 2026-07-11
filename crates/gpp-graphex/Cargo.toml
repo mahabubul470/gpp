@@ -11,6 +11,7 @@ gpp-core = { path = "../gpp-core" }
 gpp-history = { path = "../gpp-history" }
 gpp-diff = { path = "../gpp-diff" }
 rusqlite.workspace = true
+globset.workspace = true
 age.workspace = true
 aes-gcm.workspace = true
 zstd.workspace = true

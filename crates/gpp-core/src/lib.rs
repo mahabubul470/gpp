@@ -16,5 +16,5 @@ mod wire;
 pub use error::{Error, Result};
 pub use hash::{HASH_LEN, HASH_STR_LEN, Hash, SHORT_LEN};
 pub use object::{Blob, EntryKind, Object, ObjectType, Tree, TreeEntry};
-pub use store::ObjectStore;
+pub use store::{ObjectStore, flatten_tree};
 pub use wire::{VERSION as WIRE_VERSION, flags as wire_flags};

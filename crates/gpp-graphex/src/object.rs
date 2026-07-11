@@ -24,6 +24,7 @@ pub enum NodeType {
     Schema,
     Glossary,
     Decision,
+    Belief,
 }
 
 impl NodeType {
@@ -39,6 +40,7 @@ impl NodeType {
             NodeType::Schema => "schema",
             NodeType::Glossary => "glossary",
             NodeType::Decision => "decision",
+            NodeType::Belief => "belief",
         }
     }
 
@@ -54,6 +56,7 @@ impl NodeType {
             "schema" => NodeType::Schema,
             "glossary" => NodeType::Glossary,
             "decision" => NodeType::Decision,
+            "belief" => NodeType::Belief,
             other => return Err(Error::UnknownNodeType(other.to_string())),
         })
     }
@@ -149,6 +152,10 @@ pub struct GraphNode {
     pub confidence: f32,
     pub validated_at: Option<i64>,
     pub source: NodeSource,
+    /// Belief payload — only for `NodeType::Belief` nodes. `default` so
+    /// blobs written before this field existed still decode.
+    #[serde(default)]
+    pub belief: Option<crate::belief::BeliefData>,
 }
 
 impl GraphNode {
@@ -270,6 +277,7 @@ mod tests {
             confidence: 1.0,
             validated_at: None,
             source: NodeSource::HumanCreated,
+            belief: None,
         };
         let id1 = n.id();
         n.description = "v2 longer text".into();
@@ -291,6 +299,7 @@ mod tests {
             confidence: 0.9,
             validated_at: Some(7),
             source: NodeSource::HumanCreated,
+            belief: None,
         };
         assert_eq!(GraphNode::decode(&n.encode().unwrap()).unwrap(), n);
     }

@@ -202,6 +202,7 @@ impl AgentSession {
                         agent_id: self.agent_id.clone(),
                         approved_by: None,
                     },
+                    belief: None,
                 };
                 let id = gs.put_node(&node, NodeState::Proposed)?;
                 let payload = serde_json::json!({

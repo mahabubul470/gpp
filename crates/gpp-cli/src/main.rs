@@ -4,6 +4,7 @@
 //! `docs/CLI_SPEC.md` arrive in later roadmap phases.
 #![forbid(unsafe_code)]
 
+mod belief;
 mod cli;
 mod commands;
 mod config;
@@ -44,6 +45,7 @@ fn main() -> ExitCode {
         Command::GitBridge(a) => phase2::git_bridge(a, repo_override),
         Command::Keys(a) => phase3::keys(a, repo_override),
         Command::Graphex(a) => phase3::graphex(a, repo_override, args.json),
+        Command::Belief(a) => belief::belief(a, repo_override, args.json),
         Command::McpServer(a) => phase3::mcp_server(a, repo_override),
         Command::Trust(a) => phase4::trust(a, repo_override, args.json),
         Command::Policy(a) => phase4::policy(a, repo_override),
