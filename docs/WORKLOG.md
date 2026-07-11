@@ -7,6 +7,57 @@ tracks *why* things went the way they did.)
 
 ---
 
+## 2026-07-12 — Outreach pass: one wedge, fixed basics, professional site
+
+Executed the outreach handoff end to end (§1–§7); everything requiring
+Mahabubul's account is collected in
+[`outreach/MANUAL-CHECKLIST.md`](outreach/MANUAL-CHECKLIST.md).
+
+**Basics (§1):** every `gpp-vcs` reference replaced with `mahabubul470`
+(15 files — gpp-vcs was a placeholder future org; if it's ever created,
+transfer the repo and the URLs keep working via redirect). Added the
+missing MIT `LICENSE` the site/Cargo.toml already claimed. Test counts
+were drifting (site said 123, README 133, reality 177) — synced to 177
+with the verified date; counts now live in exactly two places (README
+status + site status section).
+
+**Demo (§4):** `scripts/demo.sh` — deterministic, temp-dir, <30 s arc:
+capture → promote → tree-sitter rename collapse → belief goes stale →
+bisect names the commit. Recorded headless with asciinema 3.2 →
+`site/assets/demo.{cast,gif}` (agg, dracula, 100×32). Because belief
+bisect already shipped (previous handoff), the "placeholder until the
+feature lands" instruction was obsolete — bisect is the finale now.
+
+**README (§2):** restructured — problem hook + GIF, 30-second try,
+three differentiators, MCP quickstart with the real `.mcp.json`, badges;
+honesty block preserved but corrected (integration suites now exist;
+passphrase-wrapped key shipped). Layer table demoted below status.
+
+**Site (§3):** full redesign, single-file, no JS beyond copy-to-clip.
+Restrained dark palette, Inter + JetBrains Mono, real demo GIF in the
+hero, memory-file-vs-witnessed contrast, the actual axum validation
+table as the proof section, comparison reframed from 9 adversarial ✕'s
+to 4 "different assumptions" rows with the git bridge surfaced, 17
+crates collapsed under "the platform underneath", OG/Twitter meta +
+generated `assets/og.png` (SVG source alongside).
+
+**Releases (§5):** release.yml already existed with 2 targets; extended
+to 4 (added macos-x86_64 cross-compile + windows-msvc with zip
+packaging), generated release notes, fail-fast off. Homebrew formula
+already pointed at the right tap path; sha256 fill-in is a per-release
+manual step (checklist). Windows leg is untested until the first tag.
+
+**Drafts (§6–7):** `docs/MCP.md` (tool list verified against `mcp.rs` —
+7 tools; noted GRAPHEX_PROTOCOL.md's larger table is spec-not-build),
+`docs/outreach/`: blog post (real axum numbers throughout), Show HN,
+r/rust, thread outline, MCP-directory listing text. Zero hype words;
+operational claims only.
+
+**Known tensions recorded:** rusqlite bundles SQLite's C source — in
+mild conflict with CLAUDE.md's "no C dependencies" line; decided
+framing: "no hand-written C; bundled, vetted SQLite is the exception".
+asciinema+agg were cargo-installed locally for the recordings.
+
 ## 2026-07-11 — Belief Bisect: implementation + demos landed
 
 Landed the full feature the same day as discovery (entry below). What

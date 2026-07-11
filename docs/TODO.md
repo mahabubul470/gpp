@@ -1,7 +1,8 @@
 # TODO — gpp (git++) Next Work
 
-Status snapshot: all 9 phases (0–8) implemented; 133 workspace tests pass;
-clippy/fmt clean; line coverage 65.70% (verified 2026-06-23). P0.1–P0.3
+Status snapshot: all 9 phases (0–8) implemented; 177 workspace tests pass;
+clippy/fmt clean; line coverage 65.70% baseline (counts verified
+2026-07-12). P0.1–P0.3
 are now done — the remaining P0 work is the test-depth/integration pass
 (P0.4–P0.5). This document is the single prioritized backlog for what
 comes next. It consolidates the `[~]` partial items and "Implementation
@@ -174,6 +175,13 @@ bidirectional platform sync, then live dependency intelligence.
 - [ ] **Latency target verification** (Phase 8). Criterion baselines
   exist; measure and tune against the stated targets (timeline < 5ms,
   hot read < 1ms, 100k-object clone < 30s) and gate them in CI.
+- [~] **Outreach pass** (2026-07-12). Automatable parts done — see the
+  WORKLOG entry: URL/count/LICENSE fixes, demo recording, README + site
+  redesign around the staleness wedge, 4-target release matrix, MCP.md,
+  blog/HN/r-rust drafts. *Remaining:* the account-bound steps in
+  [`outreach/MANUAL-CHECKLIST.md`](outreach/MANUAL-CHECKLIST.md)
+  (About/topics, v0.1.0 tag, brew tap, posting, MCP directory PRs), and
+  verifying the Windows/macos-x86_64 release legs on the first tag.
 - [ ] **apt/dpkg packaging.** Tarball + Docker + Homebrew ship today;
   add Debian packaging.
 - [ ] **Email/Jira/Linear notify backends.** Dispatch path is generic
