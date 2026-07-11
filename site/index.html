@@ -3,1188 +3,593 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>gpp — git++ | AI-Native Version Control</title>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700;800&family=Space+Grotesk:wght@300;400;500;600;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+<title>gpp — version control that remembers, and knows when it's wrong</title>
+<meta name="description" content="An AI-native version control system in Rust. Continuous change capture, an encrypted in-repo knowledge graph, and beliefs about your code that history itself keeps honest — gpp belief bisect names the commit that staled a fact.">
+
+<!-- OpenGraph / Twitter -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="gpp — version control that remembers, and knows when it's wrong">
+<meta property="og:description" content="Continuous capture, encrypted in-repo project knowledge, and deterministic staleness: `gpp belief bisect` names the commit that invalidated what you believed about your code. Rust, MIT, works alongside git.">
+<meta property="og:url" content="https://mahabubul470.github.io/gpp/">
+<meta property="og:image" content="https://mahabubul470.github.io/gpp/assets/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="gpp — version control that remembers, and knows when it's wrong">
+<meta name="twitter:description" content="Your agent's memory of the codebase goes stale silently. A VCS that hosts the memory on its own history can name the commit that staled it.">
+<meta name="twitter:image" content="https://mahabubul470.github.io/gpp/assets/og.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg-deep: #06080d;
-    --bg-surface: #0c1019;
-    --bg-card: #111827;
-    --bg-card-hover: #1a2332;
-    --green: #22f5a0;
-    --green-dim: #14a86a;
-    --green-glow: rgba(34, 245, 160, 0.15);
-    --cyan: #38d9f5;
-    --cyan-dim: #1e8fa3;
-    --amber: #f5b342;
-    --red: #f54257;
-    --purple: #a78bfa;
-    --text-primary: #e8ecf4;
-    --text-secondary: #8892a4;
-    --text-dim: #4a5568;
-    --border: #1e293b;
-    --border-light: #2d3a4d;
+    --bg: #0b0e14;
+    --bg-raise: #10141d;
+    --bg-inset: #0d1117;
+    --border: #1f2733;
+    --border-strong: #2c3644;
+    --text: #e6e9ef;
+    --text-2: #9aa4b2;
+    --text-3: #5c6773;
+    --accent: #4ade80;
+    --accent-dim: #22824a;
+    --warn: #fbbf24;
+    --bad: #f87171;
+    --link: #7dd3fc;
+    --mono: 'JetBrains Mono', ui-monospace, monospace;
+    --sans: 'Inter', -apple-system, system-ui, sans-serif;
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
-
   html { scroll-behavior: smooth; }
-
   body {
-    font-family: 'DM Sans', sans-serif;
-    background: var(--bg-deep);
-    color: var(--text-primary);
-    overflow-x: hidden;
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
     -webkit-font-smoothing: antialiased;
-  }
-
-  /* ─── Grain overlay ─── */
-  body::before {
-    content: '';
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
-    pointer-events: none;
-    z-index: 9999;
-  }
-
-  /* ─── Nav ─── */
-  nav {
-    position: fixed;
-    top: 0; left: 0; right: 0;
-    z-index: 100;
-    padding: 20px 48px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: rgba(6, 8, 13, 0.8);
-    backdrop-filter: blur(20px);
-    border-bottom: 1px solid var(--border);
-  }
-
-  .nav-logo {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 22px;
-    font-weight: 800;
-    color: var(--green);
-    text-decoration: none;
-    letter-spacing: -0.5px;
-  }
-  .nav-logo span { color: var(--text-dim); font-weight: 400; }
-
-  .nav-links { display: flex; gap: 32px; align-items: center; }
-  .nav-links a {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 13px;
-    color: var(--text-secondary);
-    text-decoration: none;
-    transition: color 0.2s;
-  }
-  .nav-links a:hover { color: var(--green); }
-
-  .nav-cta {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 13px;
-    padding: 8px 20px;
-    background: var(--green);
-    color: var(--bg-deep);
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: 600;
-    transition: all 0.2s;
-  }
-  .nav-cta:hover { box-shadow: 0 0 24px var(--green-glow); transform: translateY(-1px); }
-
-  /* ─── Hero ─── */
-  .hero {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    text-align: center;
-    padding: 140px 24px 80px;
-    position: relative;
-  }
-
-  .hero-grid-bg {
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background-image:
-      linear-gradient(rgba(34, 245, 160, 0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(34, 245, 160, 0.03) 1px, transparent 1px);
-    background-size: 64px 64px;
-    mask-image: radial-gradient(ellipse 60% 50% at 50% 40%, black 20%, transparent 70%);
-  }
-
-  .hero-glow {
-    position: absolute;
-    width: 600px; height: 600px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(34, 245, 160, 0.08), transparent 70%);
-    top: 10%; left: 50%; transform: translateX(-50%);
-    pointer-events: none;
-  }
-
-  .hero-badge {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 12px;
-    color: var(--green);
-    background: rgba(34, 245, 160, 0.08);
-    border: 1px solid rgba(34, 245, 160, 0.2);
-    padding: 6px 16px;
-    border-radius: 100px;
-    margin-bottom: 32px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    display: inline-block;
-    animation: fadeInDown 0.8s ease;
-  }
-
-  .hero h1 {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: clamp(56px, 8vw, 96px);
-    font-weight: 800;
-    line-height: 1;
-    letter-spacing: -3px;
-    margin-bottom: 8px;
-    position: relative;
-    animation: fadeInUp 0.8s ease;
-  }
-  .hero h1 .plus {
-    color: var(--green);
-    text-shadow: 0 0 40px var(--green-glow);
-  }
-
-  .hero-tagline {
-    font-size: clamp(20px, 3vw, 28px);
-    font-weight: 300;
-    color: var(--text-secondary);
-    margin-bottom: 40px;
-    max-width: 600px;
-    line-height: 1.5;
-    animation: fadeInUp 0.8s ease 0.1s both;
-  }
-  .hero-tagline strong { color: var(--text-primary); font-weight: 500; }
-
-  .hero-terminal {
-    background: var(--bg-surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 0;
-    max-width: 540px;
-    width: 100%;
-    text-align: left;
-    margin-bottom: 48px;
-    overflow: hidden;
-    animation: fadeInUp 0.8s ease 0.2s both;
-    box-shadow: 0 24px 80px rgba(0,0,0,0.4);
-  }
-
-  .terminal-bar {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 16px;
-    background: var(--bg-card);
-    border-bottom: 1px solid var(--border);
-  }
-  .terminal-dot {
-    width: 12px; height: 12px;
-    border-radius: 50%;
-  }
-  .terminal-dot.r { background: #f54257; }
-  .terminal-dot.y { background: #f5b342; }
-  .terminal-dot.g { background: #22f5a0; }
-  .terminal-title {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 12px;
-    color: var(--text-dim);
-    margin-left: 8px;
-  }
-
-  .terminal-body {
-    padding: 20px 24px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 14px;
-    line-height: 2;
-  }
-  .terminal-body .prompt { color: var(--green); }
-  .terminal-body .cmd { color: var(--text-primary); }
-  .terminal-body .flag { color: var(--cyan); }
-  .terminal-body .comment { color: var(--text-dim); }
-  .terminal-body .output { color: var(--text-secondary); font-size: 12px; }
-
-  .hero-actions {
-    display: flex;
-    gap: 16px;
-    flex-wrap: wrap;
-    justify-content: center;
-    animation: fadeInUp 0.8s ease 0.3s both;
-  }
-
-  .btn-primary {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 15px;
-    font-weight: 600;
-    padding: 14px 32px;
-    background: var(--green);
-    color: var(--bg-deep);
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.25s;
-  }
-  .btn-primary:hover {
-    box-shadow: 0 0 32px rgba(34, 245, 160, 0.3);
-    transform: translateY(-2px);
-  }
-
-  .btn-secondary {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 15px;
-    font-weight: 500;
-    padding: 14px 32px;
-    background: transparent;
-    color: var(--text-primary);
-    border: 1px solid var(--border-light);
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.25s;
-  }
-  .btn-secondary:hover {
-    border-color: var(--green);
-    color: var(--green);
-    transform: translateY(-2px);
-  }
-
-  /* ─── Stats bar ─── */
-  .stats-bar {
-    display: flex;
-    justify-content: center;
-    gap: 64px;
-    padding: 48px 24px;
-    border-top: 1px solid var(--border);
-    border-bottom: 1px solid var(--border);
-    flex-wrap: wrap;
-  }
-  .stat { text-align: center; }
-  .stat-num {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 36px;
-    font-weight: 800;
-    color: var(--green);
-  }
-  .stat-label {
-    font-size: 14px;
-    color: var(--text-secondary);
-    margin-top: 4px;
-  }
-
-  /* ─── Section styling ─── */
-  section {
-    padding: 120px 24px;
-    max-width: 1200px;
-    margin: 0 auto;
-  }
-
-  .section-label {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 12px;
-    color: var(--green);
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    margin-bottom: 16px;
-  }
-
-  .section-title {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: clamp(32px, 4vw, 48px);
-    font-weight: 700;
-    line-height: 1.15;
-    letter-spacing: -1.5px;
-    margin-bottom: 20px;
-  }
-
-  .section-desc {
-    font-size: 18px;
-    color: var(--text-secondary);
-    max-width: 640px;
-    line-height: 1.7;
-    margin-bottom: 64px;
-  }
-
-  /* ─── Architecture diagram ─── */
-  .arch-container {
-    position: relative;
-    padding: 120px 24px;
-    max-width: 1200px;
-    margin: 0 auto;
-  }
-
-  .arch-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 2px;
-    background: var(--border);
-    border-radius: 16px;
-    overflow: hidden;
-  }
-
-  .arch-layer {
-    background: var(--bg-surface);
-    padding: 32px;
-    position: relative;
-    transition: all 0.3s;
-  }
-  .arch-layer:hover {
-    background: var(--bg-card);
-  }
-
-  .arch-layer.full-width {
-    grid-column: 1 / -1;
-  }
-
-  .arch-layer.span-2 {
-    grid-column: span 2;
-  }
-
-  .arch-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 18px;
-    margin-bottom: 16px;
-    font-family: 'JetBrains Mono', monospace;
-    font-weight: 700;
-  }
-
-  .arch-icon.green { background: rgba(34, 245, 160, 0.12); color: var(--green); }
-  .arch-icon.cyan { background: rgba(56, 217, 245, 0.12); color: var(--cyan); }
-  .arch-icon.amber { background: rgba(245, 179, 66, 0.12); color: var(--amber); }
-  .arch-icon.red { background: rgba(245, 66, 87, 0.12); color: var(--red); }
-  .arch-icon.purple { background: rgba(167, 139, 250, 0.12); color: var(--purple); }
-
-  .arch-name {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 15px;
-    font-weight: 600;
-    margin-bottom: 8px;
-    color: var(--text-primary);
-  }
-
-  .arch-desc {
-    font-size: 13px;
-    color: var(--text-secondary);
-    line-height: 1.6;
-  }
-
-  .arch-tag {
-    display: inline-block;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    padding: 3px 8px;
-    border-radius: 4px;
-    margin-top: 12px;
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
-  }
-  .arch-tag.core { background: rgba(34, 245, 160, 0.1); color: var(--green); }
-  .arch-tag.intelligence { background: rgba(56, 217, 245, 0.1); color: var(--cyan); }
-  .arch-tag.security { background: rgba(245, 66, 87, 0.1); color: var(--red); }
-  .arch-tag.infra { background: rgba(167, 139, 250, 0.1); color: var(--purple); }
-
-  /* ─── Features grid ─── */
-  .features-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-    gap: 24px;
-  }
-
-  .feature-card {
-    background: var(--bg-surface);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 36px;
-    transition: all 0.3s;
-    position: relative;
-    overflow: hidden;
-  }
-  .feature-card:hover {
-    border-color: var(--border-light);
-    transform: translateY(-4px);
-    box-shadow: 0 16px 48px rgba(0,0,0,0.3);
-  }
-  .feature-card::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, var(--green), transparent);
-    opacity: 0;
-    transition: opacity 0.3s;
-  }
-  .feature-card:hover::before { opacity: 1; }
-
-  .feature-num {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 48px;
-    font-weight: 800;
-    color: var(--border-light);
-    line-height: 1;
-    margin-bottom: 16px;
-  }
-
-  .feature-title {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 18px;
-    font-weight: 600;
-    margin-bottom: 12px;
-    color: var(--text-primary);
-  }
-
-  .feature-text {
-    font-size: 14px;
-    color: var(--text-secondary);
-    line-height: 1.7;
-  }
-
-  .feature-highlight {
-    color: var(--green);
-    font-weight: 500;
-  }
-
-  /* ─── Comparison ─── */
-  .comparison {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 32px;
-    margin-top: 48px;
-  }
-
-  .compare-col {
-    border-radius: 16px;
-    padding: 40px;
-    border: 1px solid var(--border);
-  }
-  .compare-col.old { background: var(--bg-surface); }
-  .compare-col.new {
-    background: linear-gradient(135deg, rgba(34, 245, 160, 0.04), rgba(56, 217, 245, 0.04));
-    border-color: rgba(34, 245, 160, 0.2);
-  }
-
-  .compare-header {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 20px;
-    font-weight: 700;
-    margin-bottom: 32px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-  .compare-header .dot {
-    width: 10px; height: 10px;
-    border-radius: 50%;
-  }
-  .compare-header .dot.red { background: var(--red); }
-  .compare-header .dot.green { background: var(--green); box-shadow: 0 0 12px var(--green-glow); }
-
-  .compare-item {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    padding: 14px 0;
-    border-bottom: 1px solid var(--border);
-    font-size: 14px;
-    color: var(--text-secondary);
-    line-height: 1.5;
-  }
-  .compare-item:last-child { border-bottom: none; }
-  .compare-item .icon { font-size: 16px; flex-shrink: 0; margin-top: 2px; }
-
-  /* ─── CLI showcase ─── */
-  .cli-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 24px;
-  }
-
-  .cli-block {
-    background: var(--bg-surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    overflow: hidden;
-  }
-
-  .cli-label {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 12px;
-    color: var(--text-dim);
-    padding: 12px 20px;
-    background: var(--bg-card);
-    border-bottom: 1px solid var(--border);
-    letter-spacing: 1px;
-    text-transform: uppercase;
-  }
-
-  .cli-code {
-    padding: 20px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 13px;
-    line-height: 2;
-    overflow-x: auto;
-  }
-  .cli-code .p { color: var(--green); }
-  .cli-code .c { color: var(--text-primary); }
-  .cli-code .f { color: var(--cyan); }
-  .cli-code .o { color: var(--text-secondary); font-size: 12px; }
-  .cli-code .a { color: var(--amber); }
-  .cli-code .r { color: var(--red); }
-  .cli-code .d { color: var(--text-dim); }
-
-  /* ─── Footer ─── */
-  footer {
-    border-top: 1px solid var(--border);
-    padding: 64px 48px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 24px;
-  }
-
-  .footer-logo {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 18px;
-    font-weight: 800;
-    color: var(--green);
-  }
-  .footer-logo span { color: var(--text-dim); font-weight: 300; }
-
-  .footer-links {
-    display: flex;
-    gap: 32px;
-  }
-  .footer-links a {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 13px;
-    color: var(--text-secondary);
-    text-decoration: none;
-    transition: color 0.2s;
-  }
-  .footer-links a:hover { color: var(--green); }
-
-  .footer-copy {
-    font-size: 13px;
-    color: var(--text-dim);
-    width: 100%;
-    text-align: center;
-    margin-top: 24px;
-    padding-top: 24px;
-    border-top: 1px solid var(--border);
-  }
-
-  /* ─── CTA Section ─── */
-  .cta-section {
-    text-align: center;
-    padding: 120px 24px;
-    position: relative;
-  }
-
-  .cta-glow {
-    position: absolute;
-    width: 400px; height: 400px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(34, 245, 160, 0.06), transparent 70%);
-    top: 50%; left: 50%; transform: translate(-50%, -50%);
-  }
-
-  .cta-section h2 {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: clamp(32px, 4vw, 52px);
-    font-weight: 800;
-    letter-spacing: -2px;
-    margin-bottom: 20px;
-    position: relative;
-  }
-
-  .cta-section p {
-    font-size: 18px;
-    color: var(--text-secondary);
-    margin-bottom: 40px;
-    position: relative;
-  }
-
-  .cta-install {
-    font-family: 'JetBrains Mono', monospace;
     font-size: 16px;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 16px 32px;
-    color: var(--text-primary);
-    display: inline-flex;
-    align-items: center;
-    gap: 12px;
-    position: relative;
-    cursor: pointer;
-    transition: all 0.2s;
   }
-  .cta-install:hover {
-    border-color: var(--green);
-    box-shadow: 0 0 32px rgba(34, 245, 160, 0.1);
-  }
-  .cta-install .dollar { color: var(--green); }
-  .cta-install .copy-hint {
-    font-size: 11px;
-    color: var(--text-dim);
-    margin-left: 16px;
-    padding-left: 16px;
-    border-left: 1px solid var(--border);
-  }
+  a { color: var(--link); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code, pre { font-family: var(--mono); }
 
-  /* ─── Status pills on arch layers ─── */
-  .arch-status {
-    display: inline-block;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    padding: 3px 8px;
-    border-radius: 4px;
-    margin-top: 12px;
-    margin-left: 8px;
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
-  }
-  .arch-status.shipped { background: rgba(34, 245, 160, 0.12); color: var(--green); }
-  .arch-status.partial { background: rgba(245, 179, 66, 0.12); color: var(--amber); }
-  .arch-status.planned { background: rgba(74, 85, 104, 0.18); color: var(--text-secondary); }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
 
-  /* ─── Roadmap / status section ─── */
-  .phase-list { display: flex; flex-direction: column; gap: 12px; }
-  .phase-row {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    background: var(--bg-surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 20px 28px;
-    transition: border-color 0.2s;
-  }
-  .phase-row:hover { border-color: var(--border-light); }
-  .phase-row.done { border-color: rgba(34, 245, 160, 0.25); }
-  .phase-state {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 12px;
-    font-weight: 700;
-    padding: 6px 12px;
-    border-radius: 6px;
-    white-space: nowrap;
-    letter-spacing: 0.5px;
-  }
-  .phase-state.done { background: rgba(34, 245, 160, 0.12); color: var(--green); }
-  .phase-state.next { background: rgba(56, 217, 245, 0.12); color: var(--cyan); }
-  .phase-state.todo { background: rgba(74, 85, 104, 0.18); color: var(--text-secondary); }
-  .phase-name {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--text-primary);
-    min-width: 220px;
-  }
-  .phase-detail { font-size: 14px; color: var(--text-secondary); line-height: 1.5; }
-
-  /* ─── Under the hood ─── */
-  .uh-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 20px;
-  }
-  .uh-card {
-    background: var(--bg-surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 28px;
-  }
-  .uh-card h3 {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 14px;
-    color: var(--green);
-    margin-bottom: 14px;
-    letter-spacing: 0.5px;
-  }
-  .uh-card ul { list-style: none; }
-  .uh-card li {
-    font-size: 13.5px;
-    color: var(--text-secondary);
-    line-height: 1.6;
-    padding: 6px 0;
+  /* ── Nav ── */
+  header {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(11, 14, 20, 0.85);
+    backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--border);
   }
-  .uh-card li:last-child { border-bottom: none; }
-  .uh-card li code {
-    font-family: 'JetBrains Mono', monospace;
-    color: var(--cyan);
-    font-size: 12.5px;
+  .nav {
+    display: flex; align-items: center; justify-content: space-between;
+    height: 60px;
+  }
+  .logo {
+    font-family: var(--mono); font-weight: 600; font-size: 17px;
+    color: var(--text); text-decoration: none;
+  }
+  .logo b { color: var(--accent); font-weight: 600; }
+  .logo:hover { text-decoration: none; }
+  .nav-links { display: flex; gap: 28px; align-items: center; }
+  .nav-links a { font-size: 14px; color: var(--text-2); }
+  .nav-links a:hover { color: var(--text); text-decoration: none; }
+  .gh-btn {
+    font-size: 14px; font-weight: 500; color: var(--text) !important;
+    border: 1px solid var(--border-strong); border-radius: 6px;
+    padding: 6px 14px; transition: border-color .15s;
+  }
+  .gh-btn:hover { border-color: var(--accent-dim); text-decoration: none !important; }
+
+  /* ── Hero ── */
+  .hero { padding: 88px 0 64px; }
+  .hero-grid {
+    display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    gap: 56px; align-items: center;
+  }
+  .kicker {
+    font-family: var(--mono); font-size: 12.5px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--accent); margin-bottom: 18px;
+  }
+  h1 {
+    font-size: clamp(30px, 4.2vw, 44px); font-weight: 700;
+    letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 20px;
+  }
+  h1 em { font-style: normal; color: var(--accent); }
+  .lede { font-size: 17.5px; color: var(--text-2); max-width: 46ch; margin-bottom: 28px; }
+  .lede strong { color: var(--text); font-weight: 600; }
+
+  .install-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .install-cmd {
+    font-family: var(--mono); font-size: 13.5px;
+    background: var(--bg-inset); border: 1px solid var(--border);
+    border-radius: 8px; padding: 11px 16px; color: var(--text);
+    cursor: pointer; transition: border-color .15s;
+    display: inline-flex; align-items: center; gap: 10px;
+  }
+  .install-cmd:hover { border-color: var(--border-strong); }
+  .install-cmd .ps1 { color: var(--accent); user-select: none; }
+  .install-cmd .hint { font-size: 11px; color: var(--text-3); user-select: none; }
+  .btn {
+    display: inline-block; font-size: 14.5px; font-weight: 600;
+    border-radius: 8px; padding: 11px 20px; transition: all .15s;
+  }
+  .btn-solid { background: var(--accent); color: #08130c !important; }
+  .btn-solid:hover { filter: brightness(1.08); text-decoration: none !important; }
+
+  .hero-note { font-size: 13px; color: var(--text-3); margin-top: 16px; }
+  .hero-note a { color: var(--text-3); text-decoration: underline; }
+
+  .term {
+    background: var(--bg-inset); border: 1px solid var(--border);
+    border-radius: 10px; overflow: hidden;
+    box-shadow: 0 16px 48px rgba(0,0,0,.35);
+  }
+  .term-bar {
+    display: flex; align-items: center; gap: 7px;
+    padding: 10px 14px; border-bottom: 1px solid var(--border);
+    background: var(--bg-raise);
+  }
+  .term-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--border-strong); }
+  .term-title { font-family: var(--mono); font-size: 11.5px; color: var(--text-3); margin-left: 6px; }
+  .term img { display: block; width: 100%; }
+
+  /* ── Sections ── */
+  section { padding: 72px 0; border-top: 1px solid var(--border); }
+  .sec-kicker {
+    font-family: var(--mono); font-size: 12px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--text-3); margin-bottom: 12px;
+  }
+  h2 { font-size: clamp(24px, 3vw, 32px); font-weight: 700; letter-spacing: -0.015em; margin-bottom: 14px; }
+  .sec-desc { font-size: 16.5px; color: var(--text-2); max-width: 62ch; margin-bottom: 40px; }
+
+  /* ── Contrast (problem) ── */
+  .contrast { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .panel {
+    background: var(--bg-raise); border: 1px solid var(--border);
+    border-radius: 10px; overflow: hidden;
+  }
+  .panel-head {
+    font-family: var(--mono); font-size: 12px; color: var(--text-2);
+    padding: 10px 16px; border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .tag { font-size: 10.5px; padding: 2px 8px; border-radius: 99px; font-weight: 600; letter-spacing: .04em; }
+  .tag.bad { background: rgba(248,113,113,.12); color: var(--bad); }
+  .tag.good { background: rgba(74,222,128,.12); color: var(--accent); }
+  .panel pre {
+    padding: 16px 18px; font-size: 12.5px; line-height: 1.75;
+    overflow-x: auto; color: var(--text-2);
+  }
+  .panel pre .dim { color: var(--text-3); }
+  .panel pre .red { color: var(--bad); }
+  .panel pre .grn { color: var(--accent); }
+  .panel pre .yel { color: var(--warn); }
+  .panel pre .wht { color: var(--text); }
+
+  /* ── Proof table ── */
+  .proof-table { width: 100%; border-collapse: collapse; font-size: 14px; margin-bottom: 20px; }
+  .proof-table th {
+    text-align: left; font-family: var(--mono); font-size: 11.5px;
+    text-transform: uppercase; letter-spacing: .06em; color: var(--text-3);
+    padding: 10px 14px; border-bottom: 1px solid var(--border-strong);
+  }
+  .proof-table td {
+    padding: 12px 14px; border-bottom: 1px solid var(--border);
+    color: var(--text-2); vertical-align: top;
+  }
+  .proof-table td code { font-size: 12.5px; color: var(--text); }
+  .proof-table .v-inv { color: var(--bad); font-family: var(--mono); font-size: 12.5px; white-space: nowrap; }
+  .proof-table .v-ok { color: var(--accent); font-family: var(--mono); font-size: 12.5px; white-space: nowrap; }
+  .fineprint { font-size: 13px; color: var(--text-3); }
+
+  /* ── Feature cards ── */
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .card {
+    background: var(--bg-raise); border: 1px solid var(--border);
+    border-radius: 10px; padding: 26px;
+  }
+  .card h3 { font-size: 16.5px; font-weight: 600; margin-bottom: 10px; }
+  .card p { font-size: 14.5px; color: var(--text-2); }
+  .card code { font-size: 13px; color: var(--text); }
+
+  /* ── Assumptions table ── */
+  .assume { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+  .assume th {
+    text-align: left; padding: 12px 16px; font-size: 13px;
+    font-family: var(--mono); color: var(--text-3); font-weight: 500;
+    border-bottom: 1px solid var(--border-strong);
+  }
+  .assume td { padding: 14px 16px; border-bottom: 1px solid var(--border); color: var(--text-2); vertical-align: top; }
+  .assume td:first-child { color: var(--text-3); width: 22%; font-weight: 500; }
+  .assume td strong { color: var(--text); font-weight: 600; }
+  .bridge-note {
+    margin-top: 24px; padding: 16px 20px; border: 1px solid var(--border);
+    border-left: 3px solid var(--accent-dim); border-radius: 6px;
+    font-size: 14.5px; color: var(--text-2); background: var(--bg-raise);
   }
 
-  a.btn-primary, a.btn-secondary, a.nav-cta { text-decoration: none; display: inline-block; }
-
-  /* ─── Animations ─── */
-  @keyframes fadeInUp {
-    from { opacity: 0; transform: translateY(24px); }
-    to { opacity: 1; transform: translateY(0); }
+  /* ── Code blocks ── */
+  .code {
+    background: var(--bg-inset); border: 1px solid var(--border);
+    border-radius: 10px; padding: 18px 20px; font-size: 13px;
+    line-height: 1.8; overflow-x: auto; color: var(--text-2);
+    white-space: pre;
   }
-  @keyframes fadeInDown {
-    from { opacity: 0; transform: translateY(-16px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
+  .code .ps1 { color: var(--accent); }
+  .code .wht { color: var(--text); }
+  .code .dim { color: var(--text-3); }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
 
-  /* ─── Responsive ─── */
-  @media (max-width: 768px) {
-    nav { padding: 16px 20px; }
+  /* ── Status ── */
+  .status-facts { display: flex; gap: 40px; flex-wrap: wrap; margin-bottom: 28px; }
+  .fact .n { font-family: var(--mono); font-size: 26px; font-weight: 600; color: var(--text); }
+  .fact .l { font-size: 13px; color: var(--text-3); }
+  .honesty {
+    border: 1px solid var(--border); border-radius: 10px;
+    padding: 22px 26px; background: var(--bg-raise);
+    font-size: 14.5px; color: var(--text-2); max-width: 72ch;
+  }
+  .honesty strong { color: var(--text); }
+
+  /* ── Layers (demoted) ── */
+  details.layers { border: 1px solid var(--border); border-radius: 10px; background: var(--bg-raise); }
+  details.layers summary {
+    cursor: pointer; padding: 18px 24px; font-size: 15px; font-weight: 600;
+    color: var(--text-2); list-style: none; display: flex; justify-content: space-between; align-items: center;
+  }
+  details.layers summary::-webkit-details-marker { display: none; }
+  details.layers summary .chev { transition: transform .2s; color: var(--text-3); }
+  details.layers[open] summary .chev { transform: rotate(90deg); }
+  .layer-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    border-top: 1px solid var(--border);
+  }
+  .layer {
+    padding: 16px 24px; border-bottom: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+  }
+  .layer:nth-child(3n) { border-right: none; }
+  .layer:nth-last-child(-n+3) { border-bottom: none; }
+  .layer b { font-family: var(--mono); font-size: 13px; color: var(--text); font-weight: 500; display: block; }
+  .layer span { font-size: 12.5px; color: var(--text-3); line-height: 1.5; }
+
+  /* ── CTA / footer ── */
+  .cta { text-align: center; padding: 88px 0; }
+  .cta h2 { margin-bottom: 12px; }
+  .cta p { color: var(--text-2); margin-bottom: 28px; }
+  footer { border-top: 1px solid var(--border); padding: 32px 0 40px; }
+  .foot { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
+  .foot-links { display: flex; gap: 24px; }
+  .foot-links a { font-size: 13.5px; color: var(--text-3); }
+  .foot .copy { font-size: 13px; color: var(--text-3); }
+
+  @media (max-width: 900px) {
+    .hero-grid { grid-template-columns: 1fr; gap: 36px; }
+    .cards { grid-template-columns: 1fr; }
+    .contrast { grid-template-columns: 1fr; }
+    .two-col { grid-template-columns: 1fr; }
+    .layer-grid { grid-template-columns: 1fr; }
+    .layer { border-right: none; }
     .nav-links { display: none; }
-    .arch-grid { grid-template-columns: 1fr; }
-    .arch-layer.span-2 { grid-column: span 1; }
-    .comparison { grid-template-columns: 1fr; }
-    .cli-grid { grid-template-columns: 1fr; }
-    .features-grid { grid-template-columns: 1fr; }
-    .stats-bar { gap: 32px; }
-    footer { flex-direction: column; text-align: center; }
-    .footer-links { flex-wrap: wrap; justify-content: center; }
   }
 </style>
 </head>
 <body>
 
-<!-- Nav -->
-<nav>
-  <a href="https://github.com/mahabubul470/gpp" class="nav-logo">gpp <span>// git++</span></a>
-  <div class="nav-links">
-    <a href="#status">Status</a>
-    <a href="#architecture">Architecture</a>
-    <a href="#internals">Internals</a>
-    <a href="#cli">CLI</a>
-    <a href="docs/">Docs</a>
-    <a href="https://github.com/mahabubul470/gpp/blob/main/docs/ROADMAP.md">Roadmap</a>
+<header>
+  <div class="wrap nav">
+    <a class="logo" href="#"><b>gpp</b> · git++</a>
+    <nav class="nav-links">
+      <a href="#staleness">Belief bisect</a>
+      <a href="#different">Why gpp</a>
+      <a href="#mcp">MCP</a>
+      <a href="#status">Status</a>
+      <a href="docs/">Docs</a>
+    </nav>
+    <a class="gh-btn" href="https://github.com/mahabubul470/gpp">GitHub →</a>
   </div>
-  <a href="https://github.com/mahabubul470/gpp" class="nav-cta">★ GitHub</a>
-</nav>
+</header>
 
-<!-- Hero -->
-<div class="hero">
-  <div class="hero-grid-bg"></div>
-  <div class="hero-glow"></div>
-
-  <div class="hero-badge">Rust · Content-addressed · Open source (MIT)</div>
-
-  <h1>git<span class="plus">++</span></h1>
-
-  <p class="hero-tagline">
-    An <strong>AI-native version control system</strong> in Rust. Continuous
-    capture instead of manual commits, content-addressed storage, and
-    changesets promoted from a live timeline. <strong>Implemented
-    end-to-end — 177 workspace tests green.</strong>
-  </p>
-
-  <div class="hero-terminal">
-    <div class="terminal-bar">
-      <div class="terminal-dot r"></div>
-      <div class="terminal-dot y"></div>
-      <div class="terminal-dot g"></div>
-      <span class="terminal-title">~/project — gpp 0.1.0</span>
+<!-- ── Hero ── -->
+<div class="hero wrap">
+  <div class="hero-grid">
+    <div>
+      <div class="kicker">AI-native version control · Rust · MIT</div>
+      <h1>Version control that remembers — <em>and knows when it's wrong.</em></h1>
+      <p class="lede">
+        Agents change code continuously and keep notes that go stale silently.
+        gpp captures <strong>every change</strong> as it happens, versions
+        <strong>project knowledge inside the repo</strong>, and when a commit
+        invalidates something you believed about the code,
+        <strong>names that commit</strong> — deterministically, no LLM in the loop.
+      </p>
+      <div class="install-row">
+        <span class="install-cmd" onclick="navigator.clipboard.writeText('cargo install --git https://github.com/mahabubul470/gpp gpp-cli')">
+          <span class="ps1">$</span> cargo install --git … gpp-cli <span class="hint">copy</span>
+        </span>
+        <a class="btn btn-solid" href="https://github.com/mahabubul470/gpp">View source</a>
+      </div>
+      <p class="hero-note">
+        Works alongside git — the bridge round-trips real commits.
+        Recording below is <a href="https://github.com/mahabubul470/gpp/blob/main/scripts/demo.sh">scripts/demo.sh</a>: deterministic, no mockups.
+      </p>
     </div>
-    <div class="terminal-body">
-      <span class="prompt">$</span> <span class="cmd">gpp init</span> <span class="flag">--graphex</span><br>
-      <span class="output">Initialized empty gpp repository in .gpp/</span><br>
-      <span class="prompt">$</span> <span class="cmd">gpp timeline</span> <span class="comment"># continuous capture, no commit needed</span><br>
-      <span class="output">#3  4s ago  human:dev1  2 files changed via cli</span><br>
-      <span class="prompt">$</span> <span class="cmd">gpp promote</span> <span class="flag">-m</span> <span class="flag">"add retry"</span> <span class="flag">--intent feature</span><br>
-      <span class="output">Promoted 3 timeline entries → cs:k4f9b2qa on main</span><br>
-      <span class="prompt">$</span> <span class="cmd">gpp log</span> <span class="flag">--oneline</span><br>
-      <span class="output">cs:k4f9b2qa  add retry</span>
+    <div class="term">
+      <div class="term-bar">
+        <span class="term-dot"></span><span class="term-dot"></span><span class="term-dot"></span>
+        <span class="term-title">gpp — recorded demo (15s)</span>
+      </div>
+      <img src="assets/demo.gif" alt="Recorded terminal demo: gpp captures changes, promotes a changeset, records a belief, and belief bisect names the commit that invalidated it" loading="eager">
     </div>
-  </div>
-
-  <div class="hero-actions">
-    <a href="https://github.com/mahabubul470/gpp" class="btn-primary">★ Star on GitHub</a>
-    <a href="#build" class="btn-secondary">Build from source</a>
   </div>
 </div>
 
-<!-- Stats -->
-<div class="stats-bar">
-  <div class="stat">
-    <div class="stat-num">Rust</div>
-    <div class="stat-label">Single static binary</div>
-  </div>
-  <div class="stat">
-    <div class="stat-num">21</div>
-    <div class="stat-label">Workspace crates</div>
-  </div>
-  <div class="stat">
-    <div class="stat-num">BLAKE3</div>
-    <div class="stat-label">Content addressing</div>
-  </div>
-  <div class="stat">
-    <div class="stat-num">177</div>
-    <div class="stat-label">Workspace tests passing</div>
-  </div>
-</div>
+<!-- ── The problem ── -->
+<section id="problem">
+  <div class="wrap">
+    <div class="sec-kicker">The problem</div>
+    <h2>Your agent's memory doesn't know when the code moved.</h2>
+    <p class="sec-desc">
+      Every serious agent setup carries a memory — a CLAUDE.md, a memory bank,
+      a git-like memory store. They all keep knowledge <i>beside</i> the
+      repository, so drift between memory and code has to be detected after
+      the fact: re-read, re-embed, ask a model. gpp hosts knowledge on the
+      repo's <i>own</i> event stream, so drift is <b style="color:var(--text)">witnessed</b> —
+      the change that staled a fact arrives as a commit with author, time, and
+      diff attached.
+    </p>
+    <div class="contrast">
+      <div class="panel">
+        <div class="panel-head">memory file, six months later <span class="tag bad">silent</span></div>
+        <pre><span class="dim">## Auth notes</span>
+<span class="wht">- token expiry is 24h</span>   <span class="red">&lt;- false since June. Nothing flags it.</span>
 
-<!-- Status / Roadmap -->
+<span class="dim">Served verbatim into the agent's context, every session.</span></pre>
+      </div>
+      <div class="panel">
+        <div class="panel-head">the same fact, as a gpp belief <span class="tag good">witnessed</span></div>
+        <pre><span class="grn">$</span> <span class="wht">gpp belief bisect "token expiry is 24h"</span>
+<span class="red">INVALIDATED</span>  cs:fhcpef7c  2026-06-03
+  <span class="dim">"raise token expiry to 7 days"</span>
+ <span class="red">-  7 | pub const EXPIRY_HOURS: u64 = 24;</span>
+ <span class="grn">+  7 | pub const EXPIRY_HOURS: u64 = 168;</span></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Proof ── -->
+<section id="staleness">
+  <div class="wrap">
+    <div class="sec-kicker">Validated on real history</div>
+    <h2>Belief bisect, run against axum 0.6 → 0.7.</h2>
+    <p class="sec-desc">
+      Five beliefs seeded at axum v0.6.0 with evidence spans in the real
+      source, then bisected across 288 commits to v0.7.0 (imported through
+      the git bridge). Every invalidated belief lands on a commit documented
+      in axum's own changelog — and the control belief correctly survives.
+    </p>
+    <table class="proof-table">
+      <tr><th>Belief (true at v0.6.0)</th><th>Verdict</th><th>Culprit commit</th></tr>
+      <tr>
+        <td><code>Router</code> is generic over the body type (<code>Router&lt;S, B&gt;</code>)</td>
+        <td class="v-inv">invalidated</td>
+        <td><code>4e4c2917</code> — Remove <code>B</code> type param (<a href="https://github.com/tokio-rs/axum/pull/1751">#1751</a>)</td>
+      </tr>
+      <tr>
+        <td>axum re-exports <code>hyper::Server</code></td>
+        <td class="v-inv">invalidated</td>
+        <td><code>c9796725</code> — Add <code>serve</code>, remove <code>Server</code> re-export (<a href="https://github.com/tokio-rs/axum/pull/1868">#1868</a>)</td>
+      </tr>
+      <tr>
+        <td>bodies stream via <code>extract::BodyStream</code></td>
+        <td class="v-inv">invalidated</td>
+        <td><code>4e4c2917</code> — Remove <code>B</code> type param (<a href="https://github.com/tokio-rs/axum/pull/1751">#1751</a>)</td>
+      </tr>
+      <tr>
+        <td>shared state is extracted with <code>State&lt;T&gt;</code></td>
+        <td class="v-ok">holds</td>
+        <td>— (unchanged in 0.7; survives all 288 commits)</td>
+      </tr>
+    </table>
+    <p class="fineprint">
+      Scope-only intersection marks a belief <i>stale-candidate</i>, never false;
+      only evidence-span content change or deletion marks it <i>invalidated</i>.
+      Evidence spans are drift-adjusted commit by commit. Full run + method:
+      <a href="https://github.com/mahabubul470/gpp/tree/main/demos/belief-bisect">demos/belief-bisect</a>.
+      Import of 1,251 commits ≈ 8s; a full bisect rescan ≈ 0.5s.
+    </p>
+  </div>
+</section>
+
+<!-- ── Differentiators ── -->
+<section id="different">
+  <div class="wrap">
+    <div class="sec-kicker">Why gpp</div>
+    <h2>Three things no plain VCS gives you.</h2>
+    <p class="sec-desc">Everything else — P2P sync, replay, review, RBAC, a TUI — is the platform underneath.</p>
+    <div class="cards">
+      <div class="card">
+        <h3>Continuous capture</h3>
+        <p>A high-frequency timeline records every file change automatically
+        (SQLite WAL, debounced watcher). Curated changesets are <i>promoted</i>
+        from it with explicit intent, author kind (human or agent), and a cost
+        record. Nothing is lost between commits.</p>
+      </div>
+      <div class="card">
+        <h3>Knowledge, versioned with the code</h3>
+        <p>Graphex is an encrypted knowledge graph inside the repo:
+        architecture, conventions, decisions, and <i>beliefs</i> with evidence
+        spans. Tier-gated per agent trust level, audited on every read, and
+        staleness-checked by the history it rides on.</p>
+      </div>
+      <div class="card">
+        <h3>Agent governance</h3>
+        <p>First-class agent identity with reputation scoring,
+        compliance-as-code policies enforced at capture, promote, and sync,
+        anomaly detection, and per-changeset token/cost attribution
+        (<code>gpp cost --report</code>).</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Different assumptions ── -->
+<section id="assumptions">
+  <div class="wrap">
+    <div class="sec-kicker">vs. the usual setup</div>
+    <h2>Different assumptions, not a feud.</h2>
+    <p class="sec-desc">git tracks files superbly. gpp assumes the contributors and the questions have changed.</p>
+    <table class="assume">
+      <tr><th></th><th>the usual setup</th><th>gpp</th></tr>
+      <tr>
+        <td>Recording</td>
+        <td>Manual commits when someone remembers; work between them is invisible</td>
+        <td><strong>Continuous timeline capture</strong>; commits become curated promotions with intent</td>
+      </tr>
+      <tr>
+        <td>Project knowledge</td>
+        <td>External memory files beside the repo; staleness detected (maybe) after the fact</td>
+        <td><strong>In-repo versioned knowledge</strong>; staleness witnessed by the same history, down to the commit</td>
+      </tr>
+      <tr>
+        <td>Diff review</td>
+        <td>Line diffs; a mechanical rename reads as hundreds of changed lines</td>
+        <td><strong>Tree-sitter semantic ops</strong>; a rename or move collapses to one reviewable operation</td>
+      </tr>
+      <tr>
+        <td>Contributors</td>
+        <td>All committers equal; agent provenance squeezed into author strings</td>
+        <td><strong>Agent identity, trust, policy, and cost</strong> as first-class, auditable data</td>
+      </tr>
+    </table>
+    <div class="bridge-note">
+      <b style="color:var(--text)">git stays.</b> The bridge
+      (<code>gpp git-import / git-export / git-bridge</code>) round-trips real
+      git commits with an idempotent hash map, so GitHub, CI, and your
+      teammates' clones keep working untouched. The axum validation above ran
+      entirely on bridge-imported history.
+    </div>
+  </div>
+</section>
+
+<!-- ── MCP ── -->
+<section id="mcp">
+  <div class="wrap">
+    <div class="sec-kicker">For agents</div>
+    <h2>Connect Claude Code — or any MCP client.</h2>
+    <p class="sec-desc">
+      Agents query the knowledge graph (stale beliefs arrive flagged ⚠/✗ in
+      the projection), propose changesets, and report token costs. Local
+      stdio only — no network listener, reads audited, content encrypted at rest.
+    </p>
+    <div class="two-col">
+      <div class="code"><span class="dim">// .mcp.json at your repo root</span>
+{
+  <span class="wht">"mcpServers"</span>: {
+    <span class="wht">"gpp"</span>: {
+      <span class="wht">"command"</span>: <span class="wht">"gpp"</span>,
+      <span class="wht">"args"</span>: [<span class="wht">"mcp-server"</span>, <span class="wht">"--stdio"</span>]
+    }
+  }
+}</div>
+      <div class="code"><span class="ps1">$</span> <span class="wht">gpp init --graphex</span>
+<span class="ps1">$</span> <span class="wht">gpp mcp-server --stdio</span>
+<span class="dim"># tools: graphex_query · graphex_status
+#   glossary · conventions
+#   propose_changeset
+#   propose_graph_update · report_cost</span></div>
+    </div>
+    <p class="fineprint" style="margin-top:16px">
+      Client setup for Claude Desktop and generic stdio clients:
+      <a href="https://github.com/mahabubul470/gpp/blob/main/docs/MCP.md">docs/MCP.md</a>.
+    </p>
+  </div>
+</section>
+
+<!-- ── Status ── -->
 <section id="status">
-  <div class="section-label">// Project status</div>
-  <div class="section-title">Implemented, not vaporware.</div>
-  <div class="section-desc">
-    Every layer below is built — <strong>177 workspace tests pass</strong>,
-    <code>clippy</code>/<code>fmt</code> clean, no stub crates (verified
-    2026-07-12). "Implemented" means built and smoke-tested against its
-    milestone; coverage depth is still uneven and actively being closed.
-    The full per-layer record is in
-    <a href="https://github.com/mahabubul470/gpp/blob/main/docs/ROADMAP.md" style="color:var(--green)">ROADMAP.md</a>;
-    the prioritized backlog of what's next is in
-    <a href="https://github.com/mahabubul470/gpp/blob/main/docs/TODO.md" style="color:var(--green)">TODO.md</a>.
-  </div>
-
-  <div class="phase-list">
-    <div class="phase-row done">
-      <span class="phase-state done">✓ SHIPPED</span>
-      <span class="phase-name">Core &amp; intelligence</span>
-      <span class="phase-detail">Object store, timeline, history, semantic diff, Git bridge, encrypted Graphex + SDK/MCP, trust/policy/anomaly governance.</span>
+  <div class="wrap">
+    <div class="sec-kicker">Project status</div>
+    <h2>Built, tested, honestly scoped.</h2>
+    <div class="status-facts">
+      <div class="fact"><div class="n">177</div><div class="l">workspace tests passing</div></div>
+      <div class="fact"><div class="n">21</div><div class="l">crates, pure Rust, no unsafe</div></div>
+      <div class="fact"><div class="n">9/9</div><div class="l">roadmap phases implemented</div></div>
+      <div class="fact"><div class="n">65.7%</div><div class="l">line coverage, measured in CI</div></div>
     </div>
-    <div class="phase-row done">
-      <span class="phase-state done">✓ SHIPPED</span>
-      <span class="phase-name">Collaboration &amp; reach</span>
-      <span class="phase-detail">Noise P2P sync, replay, federation, review + RBAC + notifications, GitHub/GitLab/Bitbucket PRs, relay, TUI, editor extensions.</span>
-    </div>
-    <div class="phase-row">
-      <span class="phase-state next">◐ NEXT</span>
-      <span class="phase-name">Hardening pass</span>
-      <span class="phase-detail">Test-depth + coverage gate, policy enforcement beyond promote, relay key rejection, live dep/CVE APIs, native SDK bindings — ranked in <a href="https://github.com/mahabubul470/gpp/blob/main/docs/TODO.md" style="color:var(--cyan)">TODO.md</a>.</span>
+    <div class="honesty">
+      <strong>The honest version</strong> (verified 2026-07-12): every layer is
+      implemented — <code>clippy</code>/<code>fmt</code> clean, no stub crates —
+      but test depth is uneven. Foundational crates are well covered and the CLI
+      has end-to-end suites (policy enforcement, cost reporting, belief bisect);
+      several integration crates remain at smoke level. "Implemented" means
+      <i>built and tested against its milestone</i>, not <i>exhaustively
+      hardened</i>. The gap and its plan live in
+      <a href="https://github.com/mahabubul470/gpp/blob/main/docs/TODO.md">TODO.md</a>;
+      the running engineering log in
+      <a href="https://github.com/mahabubul470/gpp/blob/main/docs/WORKLOG.md">WORKLOG.md</a>.
     </div>
   </div>
 </section>
 
-<!-- Architecture -->
-<section id="architecture" class="arch-container">
-  <div class="section-label">// Architecture</div>
-  <div class="section-title">12 layers. One platform.</div>
-  <div class="section-desc">The full architecture for a world where AI agents are first-class contributors. Every layer is implemented — pills show <span style="color:var(--green)">shipped</span>, with <span style="color:var(--amber)">partial</span> where a live-network or hardening follow-up is tracked in <a href="https://github.com/mahabubul470/gpp/blob/main/docs/TODO.md" style="color:var(--green)">TODO.md</a>.</div>
-
-  <div class="arch-grid">
-    <!-- Row 1: Core -->
-    <div class="arch-layer">
-      <div class="arch-icon green">01</div>
-      <div class="arch-name">Storage</div>
-      <div class="arch-desc">Content-addressed blobs (BLAKE3 + zstd), GPP wire frame, atomic idempotent writes, hash-verified reads. Blob/Tree/Changeset/Intent objects.</div>
-      <span class="arch-tag core">Core</span><span class="arch-status shipped">Shipped</span>
-    </div>
-    <div class="arch-layer">
-      <div class="arch-icon green">02</div>
-      <div class="arch-name">Timeline</div>
-      <div class="arch-desc">Continuous append-only capture into SQLite (WAL). Debounced fs-watch, <code style="color:var(--cyan);font-family:'JetBrains Mono'">.gppignore</code>, retention pruning.</div>
-      <span class="arch-tag core">Core</span><span class="arch-status shipped">Shipped</span>
-    </div>
-    <div class="arch-layer">
-      <div class="arch-icon green">03</div>
-      <div class="arch-name">History</div>
-      <div class="arch-desc">Curated changesets promoted from the timeline. Changeset DAG, Intent objects, branch refs &amp; HEAD.</div>
-      <span class="arch-tag core">Core</span><span class="arch-status shipped">Shipped</span>
-    </div>
-
-    <!-- Row 2: Intelligence -->
-    <div class="arch-layer span-2">
-      <div class="arch-icon cyan">04</div>
-      <div class="arch-name">Graphex — Encrypted Knowledge Graph</div>
-      <div class="arch-desc">Versioned project knowledge with tiered encryption, zero-knowledge sync, and cross-project federation. The project brain that agents query locally — nothing leaks to external APIs.</div>
-      <span class="arch-tag intelligence">Intelligence</span><span class="arch-status shipped">Shipped</span>
-    </div>
-    <div class="arch-layer">
-      <div class="arch-icon cyan">05</div>
-      <div class="arch-name">Trust Engine</div>
-      <div class="arch-desc">Agent reputation scoring. Behavioral RBAC that adapts based on track record.</div>
-      <span class="arch-tag intelligence">Intelligence</span><span class="arch-status shipped">Shipped</span>
-    </div>
-
-    <!-- Row 3: Safety -->
-    <div class="arch-layer">
-      <div class="arch-icon red">06</div>
-      <div class="arch-name">Policy Engine</div>
-      <div class="arch-desc">Compliance-as-code. Secrets blocking, review rules, and regulatory gates enforced at promotion (sync/capture enforcement is the next hardening item).</div>
-      <span class="arch-tag security">Security</span><span class="arch-status shipped">Shipped</span>
-    </div>
-    <div class="arch-layer">
-      <div class="arch-icon red">07</div>
-      <div class="arch-name">Anomaly Detection</div>
-      <div class="arch-desc">Pattern monitoring for agent behavior. Flags unusual changes before they land.</div>
-      <span class="arch-tag security">Security</span><span class="arch-status shipped">Shipped</span>
-    </div>
-    <div class="arch-layer">
-      <div class="arch-icon amber">08</div>
-      <div class="arch-name">Cost Attribution</div>
-      <div class="arch-desc">Per-changeset cost records, budgets and efficiency analytics. Real token capture &amp; per-path attribution land when a Tier-3 SDK reports usage.</div>
-      <span class="arch-tag intelligence">Intelligence</span><span class="arch-status partial">Partial</span>
-    </div>
-
-    <!-- Row 4: Infra -->
-    <div class="arch-layer">
-      <div class="arch-icon purple">09</div>
-      <div class="arch-name">Semantic Diff</div>
-      <div class="arch-desc">Line diff plus tree-sitter structural diff for Rust/Python/TS/Go — renames and cross-file moves collapse to one semantic op.</div>
-      <span class="arch-tag infra">Infra</span><span class="arch-status shipped">Shipped</span>
-    </div>
-    <div class="arch-layer">
-      <div class="arch-icon purple">10</div>
-      <div class="arch-name">Replay Engine</div>
-      <div class="arch-desc">Reproducible agent environments — snapshot inputs/toolchain and re-materialize, with drift diff against the original.</div>
-      <span class="arch-tag infra">Infra</span><span class="arch-status shipped">Shipped</span>
-    </div>
-    <div class="arch-layer">
-      <div class="arch-icon purple">11</div>
-      <div class="arch-name">Dependencies</div>
-      <div class="arch-desc">Offline lockfile parsing + heuristic risk scoring + newly-added-dep assessment. Live registry/CVE/license APIs are a tracked follow-up.</div>
-      <span class="arch-tag infra">Infra</span><span class="arch-status partial">Partial</span>
-    </div>
-
-    <!-- Row 5: Foundation -->
-    <div class="arch-layer full-width" style="display: flex; gap: 48px; align-items: center;">
-      <div>
-        <div class="arch-icon green">12</div>
+<!-- ── Platform underneath ── -->
+<section id="platform">
+  <div class="wrap">
+    <div class="sec-kicker">The platform underneath</div>
+    <h2>Twelve layers back the headline.</h2>
+    <p class="sec-desc">Each is a focused crate in one Cargo workspace; one static binary comes out.</p>
+    <details class="layers">
+      <summary>All 17 crates, one line each <span class="chev">›</span></summary>
+      <div class="layer-grid">
+        <div class="layer"><b>gpp-core</b><span>content-addressed store — BLAKE3 + zstd, atomic idempotent writes</span></div>
+        <div class="layer"><b>gpp-timeline</b><span>continuous capture — SQLite WAL, .gppignore, debounced watcher</span></div>
+        <div class="layer"><b>gpp-history</b><span>changesets + intents promoted from the timeline; DAG, branch refs</span></div>
+        <div class="layer"><b>gpp-diff</b><span>line + tree-sitter semantic diff (Rust/Py/TS/Go), rename/move detection</span></div>
+        <div class="layer"><b>gpp-graphex</b><span>encrypted knowledge graph — tiers, projection, audit, beliefs + staleness</span></div>
+        <div class="layer"><b>gpp-git-bridge</b><span>import/export/bridge to real git history, idempotent hash map</span></div>
+        <div class="layer"><b>gpp-trust</b><span>agent reputation scoring, status transitions, overrides</span></div>
+        <div class="layer"><b>gpp-policy</b><span>compliance-as-code at capture/promote/sync, secrets templates</span></div>
+        <div class="layer"><b>gpp-cost</b><span>per-changeset token/$ attribution, budgets, agent self-reporting</span></div>
+        <div class="layer"><b>gpp-anomaly</b><span>scope/burst/size pattern detection with resolution workflow</span></div>
+        <div class="layer"><b>gpp-sync</b><span>P2P over Noise_XX — objects, refs, policies, zero-knowledge graphex</span></div>
+        <div class="layer"><b>gpp-replay</b><span>reproducible environment snapshots + drift diff</span></div>
+        <div class="layer"><b>gpp-review · gpp-rbac</b><span>review lifecycle; roles + branch protection</span></div>
+        <div class="layer"><b>gpp-notify · gpp-remote</b><span>events/webhooks; GitHub/GitLab/Bitbucket PRs + CI import</span></div>
+        <div class="layer"><b>gpp-relay</b><span>always-on sync hub — a persistent peer, no special authority</span></div>
+        <div class="layer"><b>gpp-sdk</b><span>AgentSession + the MCP server surface</span></div>
+        <div class="layer"><b>gpp-cli · gpp-tui · gpp-deps</b><span>full CLI, ratatui TUI, dependency intel + OSV</span></div>
       </div>
-      <div>
-        <div class="arch-name">Sync Protocol — CRDT-based, offline-first, zero-knowledge replication</div>
-        <div class="arch-desc">Peer-to-peer over Noise_XX — objects, refs, policies and zero-knowledge Graphex sync with fork-preserving conflict handling. No single point of failure; works offline. Plus a plugin ecosystem for parsers, policy templates and integrations.</div>
-        <span class="arch-tag core">Foundation</span><span class="arch-status shipped">Shipped</span>
-      </div>
-    </div>
+    </details>
   </div>
 </section>
 
-<!-- Features -->
-<section id="features">
-  <div class="section-label">// Why gpp</div>
-  <div class="section-title">Built for how code<br>is actually written now.</div>
-  <div class="section-desc">Git was designed for humans making deliberate commits. AI agents don't work that way. Neither should your version control.</div>
-
-  <div class="features-grid">
-    <div class="feature-card">
-      <div class="feature-num">01</div>
-      <div class="feature-title">Continuous Capture</div>
-      <div class="feature-text">Every file change recorded automatically. Two layers: a <span class="feature-highlight">high-frequency timeline</span> for safety and a curated history for collaboration. Never lose work between commits again.</div>
-    </div>
-    <div class="feature-card">
-      <div class="feature-num">02</div>
-      <div class="feature-title">Graphex Knowledge Layer</div>
-      <div class="feature-text">A <span class="feature-highlight">versioned, encrypted knowledge graph</span> inside your repo. Agents query project architecture, conventions, and domain terms locally. Context stays yours — nothing leaks.</div>
-    </div>
-    <div class="feature-card">
-      <div class="feature-num">03</div>
-      <div class="feature-title">Agent-Aware Collaboration</div>
-      <div class="feature-text">First-class agent identity. Sandboxed exploration branches. <span class="feature-highlight">Try → evaluate → accept</span> workflow instead of commit → revert. Parallel approach testing built in.</div>
-    </div>
-    <div class="feature-card">
-      <div class="feature-num">04</div>
-      <div class="feature-title">Semantic Diffing</div>
-      <div class="feature-text">Structure-aware, not line-aware. A variable rename across 40 files shows as <span class="feature-highlight">one semantic operation</span>. AI refactors become reviewable in seconds.</div>
-    </div>
-    <div class="feature-card">
-      <div class="feature-num">05</div>
-      <div class="feature-title">Zero-Knowledge Sync</div>
-      <div class="feature-text">CRDT-based peer-to-peer replication. <span class="feature-highlight">No central server dependency</span>. Agents share graph updates without exposing context windows. Works offline.</div>
-    </div>
-    <div class="feature-card">
-      <div class="feature-num">06</div>
-      <div class="feature-title">Compliance Built In</div>
-      <div class="feature-text">Policies-as-code enforced at the storage layer. Full provenance chain from <span class="feature-highlight">prompt → agent → changeset → deploy</span>. Audit-ready by default.</div>
-    </div>
-  </div>
-</section>
-
-<!-- Comparison -->
-<section id="compare">
-  <div class="section-label">// Comparison</div>
-  <div class="section-title">What changes.</div>
-  <div class="section-desc">Same goal — track code — fundamentally different assumptions about who's writing it and how.</div>
-
-  <div class="comparison">
-    <div class="compare-col old">
-      <div class="compare-header"><span class="dot red"></span> Git</div>
-      <div class="compare-item"><span class="icon">✕</span> Manual commits only — gaps lose AI work</div>
-      <div class="compare-item"><span class="icon">✕</span> Line-based diffs — AI refactors unreadable</div>
-      <div class="compare-item"><span class="icon">✕</span> No agent awareness — all contributors equal</div>
-      <div class="compare-item"><span class="icon">✕</span> Context rebuilt from scratch every session</div>
-      <div class="compare-item"><span class="icon">✕</span> No encryption — secrets leak as hooks fail</div>
-      <div class="compare-item"><span class="icon">✕</span> Central platform dependency (GitHub outages)</div>
-      <div class="compare-item"><span class="icon">✕</span> File-path CODEOWNERS — stale within weeks</div>
-      <div class="compare-item"><span class="icon">✕</span> No cost visibility on AI-generated changes</div>
-      <div class="compare-item"><span class="icon">✕</span> Conflict markers dumped in files — figure it out</div>
-    </div>
-    <div class="compare-col new">
-      <div class="compare-header"><span class="dot green"></span> gpp</div>
-      <div class="compare-item"><span class="icon">✓</span> Continuous timeline — every state captured</div>
-      <div class="compare-item"><span class="icon">✓</span> Semantic diffs — renames and moves as one op</div>
-      <div class="compare-item"><span class="icon">✓</span> Agent identity, trust scores, sandboxing</div>
-      <div class="compare-item"><span class="icon">✓</span> Graphex — persistent, encrypted project brain</div>
-      <div class="compare-item"><span class="icon">✓</span> Policy engine blocks secrets at storage layer</div>
-      <div class="compare-item"><span class="icon">✓</span> P2P CRDT sync — no single point of failure</div>
-      <div class="compare-item"><span class="icon">✓</span> Semantic ownership follows concepts, not paths</div>
-      <div class="compare-item"><span class="icon">✓</span> Token-level cost attribution per changeset</div>
-      <div class="compare-item"><span class="icon">✓</span> AI-assisted conflict resolution with intent</div>
-    </div>
-  </div>
-</section>
-
-<!-- Internals -->
-<section id="internals">
-  <div class="section-label">// Under the hood</div>
-  <div class="section-title">How it actually works.</div>
-  <div class="section-desc">No magic. A Cargo workspace of focused crates, content-addressed storage, an embedded SQLite timeline, and changesets that form a DAG — all pure Rust, single binary, no runtime services.</div>
-
-  <div class="uh-grid">
-    <div class="uh-card">
-      <h3>Object store · gpp-core</h3>
-      <ul>
-        <li>Content addressing with <code>BLAKE3</code>, base32 ids (52 chars, short = 8)</li>
-        <li><code>Blob</code> / <code>Tree</code> / <code>Changeset</code> / <code>Intent</code> objects</li>
-        <li>Framed <code>GPP\0</code> wire format: zstd payload + 4-byte checksum</li>
-        <li>Atomic temp-then-rename writes, idempotent, hash-verified reads</li>
-      </ul>
-    </div>
-    <div class="uh-card">
-      <h3>Timeline · gpp-timeline</h3>
-      <ul>
-        <li>SQLite in <code>WAL</code> mode, schema per <code>docs/DATA_MODEL.md</code></li>
-        <li>Scanner: mtime/size fast-path, blobs written to the store</li>
-        <li><code>.gppignore</code> + configured ignore via <code>globset</code></li>
-        <li>Debounced <code>notify</code> watcher; configurable retention prune</li>
-      </ul>
-    </div>
-    <div class="uh-card">
-      <h3>History · gpp-history</h3>
-      <ul>
-        <li><code>promote</code> folds unpromoted entries → one <code>Changeset</code></li>
-        <li>Snapshot <code>Tree</code> + <code>Intent</code> (type, task ref, message)</li>
-        <li>Parent-linked changeset DAG; file-based branch refs + <code>HEAD</code></li>
-        <li>MessagePack bodies, BLAKE3-addressed, walked for <code>gpp log</code></li>
-      </ul>
-    </div>
-    <div class="uh-card">
-      <h3>Stack &amp; conventions</h3>
-      <ul>
-        <li>Rust 2024 · <code>thiserror</code>/<code>anyhow</code> · <code>tracing</code> · <code>clap</code></li>
-        <li>UTC i64 µs timestamps; costs in integer micro-dollars</li>
-        <li>No <code>unwrap()</code> in libs; <code>#![forbid(unsafe_code)]</code></li>
-        <li>CI gates: <code>cargo fmt</code> · <code>clippy -D warnings</code> · <code>test</code></li>
-      </ul>
-    </div>
-  </div>
-</section>
-
-<!-- Build from source -->
-<section id="build">
-  <div class="section-label">// Quickstart</div>
-  <div class="section-title">Build from source.</div>
-  <div class="section-desc">Not on crates.io yet — it's a pre-1.0 project. Install straight from the repo, or clone and build the workspace; either way you get a single <code style="color:var(--cyan);font-family:'JetBrains Mono'">gpp</code> binary. Full guide at <a href="docs/" style="color:var(--green)">/docs</a>.</div>
-
-  <div class="cli-block" style="max-width:720px">
-    <div class="cli-label">terminal</div>
-    <div class="cli-code">
-      <span class="p">$</span> <span class="c">cargo install --git https://github.com/mahabubul470/gpp gpp-cli</span><br>
-      <span class="d">&nbsp; # …or from a clone:</span><br>
-      <span class="p">$</span> <span class="c">git clone https://github.com/mahabubul470/gpp</span><br>
-      <span class="p">$</span> <span class="c">cd gpp &amp;&amp; cargo build --release</span><br>
-      <span class="p">$</span> <span class="c">./target/release/gpp init</span><br>
-      <span class="o">&nbsp; Initialized empty gpp repository in .gpp/</span>
-    </div>
-  </div>
-</section>
-
-<!-- CLI Showcase -->
-<section id="cli">
-  <div class="section-label">// Interface</div>
-  <div class="section-title">Real commands, today.</div>
-  <div class="section-desc">Every command below works in the current build. <code style="color:var(--cyan);font-family:'JetBrains Mono'">--json</code> on most for agent/script use — including the AI-native, governance and sync surface in the last block.</div>
-
-  <div class="cli-grid">
-    <div class="cli-block">
-      <div class="cli-label">Init &amp; capture</div>
-      <div class="cli-code">
-        <span class="p">$</span> <span class="c">gpp init</span> <span class="f">--graphex</span><br>
-        <span class="o">&nbsp; Initialized empty gpp repository in .gpp/</span><br>
-        <span class="p">$</span> <span class="c">gpp timeline</span> <span class="f">-n 3</span> <span class="d"># newest first</span><br>
-        <span class="o">&nbsp; #3  4s ago   human:dev1  2 files changed</span><br>
-        <span class="o">&nbsp; #2  3m ago   human:dev1  1 file changed</span><br>
-        <span class="p">$</span> <span class="c">gpp timeline watch</span> <span class="d"># debounced live stream</span>
-      </div>
-    </div>
-    <div class="cli-block">
-      <div class="cli-label">Promote &amp; history</div>
-      <div class="cli-code">
-        <span class="p">$</span> <span class="c">gpp promote</span> <span class="f">-m</span> <span class="f">"add retry"</span> <span class="f">--intent feature</span><br>
-        <span class="o">&nbsp; Promoted 3 timeline entries → cs:k4f9b2qa on main</span><br>
-        <span class="p">$</span> <span class="c">gpp log</span> <span class="f">--oneline</span><br>
-        <span class="o">&nbsp; cs:k4f9b2qa  add retry</span><br>
-        <span class="p">$</span> <span class="c">gpp status</span><br>
-        <span class="o">&nbsp; On branch: main (cs:k4f9b2qa) · 1 unpromoted</span>
-      </div>
-    </div>
-    <div class="cli-block">
-      <div class="cli-label">Diff &amp; branches</div>
-      <div class="cli-code">
-        <span class="p">$</span> <span class="c">gpp diff</span> <span class="d"># working tree vs HEAD</span><br>
-        <span class="o">&nbsp; --- a/src/lib.rs</span><br>
-        <span class="o">&nbsp; +++ b/src/lib.rs</span><br>
-        <span class="r">&nbsp; -    let n = 1;</span><br>
-        <span class="a">&nbsp; +    let n = retries;</span><br>
-        <span class="p">$</span> <span class="c">gpp branch</span> <span class="c">create</span> <span class="f">feature/x</span><br>
-        <span class="o">&nbsp; created branch feature/x at cs:k4f9b2qa</span>
-      </div>
-    </div>
-    <div class="cli-block">
-      <div class="cli-label">AI-native · governance · sync</div>
-      <div class="cli-code">
-        <span class="p">$</span> <span class="c">gpp diff</span> <span class="f">--semantic</span> <span class="d"># tree-sitter structural</span><br>
-        <span class="o">&nbsp; ~ fn retry()  moved src/net.rs → src/io.rs</span><br>
-        <span class="p">$</span> <span class="c">gpp mcp-server</span> <span class="f">--stdio</span> <span class="d"># agents query Graphex</span><br>
-        <span class="p">$</span> <span class="c">gpp trust show</span><br>
-        <span class="o">&nbsp; agent:claude  0.92  auto-merge</span><br>
-        <span class="p">$</span> <span class="c">gpp sync serve</span> <span class="f">127.0.0.1:9473</span> <span class="d"># Noise P2P</span>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- CTA -->
-<div class="cta-section">
-  <div class="cta-glow"></div>
-  <h2>Version control<br>for the <span style="color: var(--green)">agent age</span>.</h2>
-  <p>Built in Rust. MIT-licensed. Implemented end-to-end — clone it and try it.</p>
-  <div class="cta-install" onclick="navigator.clipboard.writeText('git clone https://github.com/mahabubul470/gpp')">
-    <span class="dollar">$</span> git clone https://github.com/mahabubul470/gpp
-    <span class="copy-hint">click to copy</span>
-  </div>
-  <div style="margin-top:28px">
-    <a href="https://github.com/mahabubul470/gpp" class="btn-primary">★ Star on GitHub</a>
-    <a href="https://github.com/mahabubul470/gpp/blob/main/docs/ROADMAP.md" class="btn-secondary">Read the Roadmap</a>
+<!-- ── CTA ── -->
+<div class="cta wrap">
+  <h2>Try the demo in your terminal.</h2>
+  <p>Clone, build, and run the same deterministic script that produced the recording above.</p>
+  <span class="install-cmd" onclick="navigator.clipboard.writeText('git clone https://github.com/mahabubul470/gpp && cd gpp && cargo build --release && ./scripts/demo.sh')">
+    <span class="ps1">$</span> git clone … && ./scripts/demo.sh <span class="hint">copy</span>
+  </span>
+  <div style="margin-top:24px">
+    <a class="btn btn-solid" href="https://github.com/mahabubul470/gpp">GitHub</a>
+    &nbsp;&nbsp;<a href="docs/" style="font-size:14.5px">Read the docs →</a>
   </div>
 </div>
 
-<!-- Footer -->
 <footer>
-  <div class="footer-logo">gpp <span>// git++</span></div>
-  <div class="footer-links">
-    <a href="https://github.com/mahabubul470/gpp">GitHub</a>
-    <a href="docs/">Docs</a>
-    <a href="https://github.com/mahabubul470/gpp/blob/main/docs/ARCHITECTURE.md">Architecture</a>
-    <a href="https://github.com/mahabubul470/gpp/blob/main/docs/ROADMAP.md">Roadmap</a>
-    <a href="https://github.com/mahabubul470/gpp/issues">Issues</a>
+  <div class="wrap foot">
+    <a class="logo" href="#"><b>gpp</b> · git++</a>
+    <div class="foot-links">
+      <a href="https://github.com/mahabubul470/gpp">GitHub</a>
+      <a href="docs/">Docs</a>
+      <a href="https://github.com/mahabubul470/gpp/blob/main/docs/ARCHITECTURE.md">Architecture</a>
+      <a href="https://github.com/mahabubul470/gpp/tree/main/demos/belief-bisect">Belief bisect</a>
+      <a href="https://github.com/mahabubul470/gpp/issues">Issues</a>
+    </div>
+    <span class="copy">© 2026 Mahabubul Hasan · MIT</span>
   </div>
-  <div class="footer-copy">© 2026 gpp contributors — MIT License · <a href="https://github.com/mahabubul470/gpp" style="color:var(--text-secondary)">github.com/mahabubul470/gpp</a></div>
 </footer>
 
 </body>
