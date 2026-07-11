@@ -14,7 +14,7 @@ gpp-relay --port 9473 --storage /data/gpp \
 Or via Docker:
 
 ```bash
-docker run -p 9473:9473 -p 9474:9474 -v gpp-data:/data ghcr.io/gpp-vcs/gpp-relay
+docker run -p 9473:9473 -p 9474:9474 -v gpp-data:/data ghcr.io/mahabubul470/gpp-relay
 ```
 
 On each developer machine:

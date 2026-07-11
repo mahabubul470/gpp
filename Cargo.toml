@@ -28,7 +28,7 @@ members = [
 version = "0.1.0"
 edition = "2024"
 license = "MIT"
-repository = "https://github.com/gpp-vcs/gpp"
+repository = "https://github.com/mahabubul470/gpp"
 description = "AI-native version control system"
 
 [workspace.dependencies]

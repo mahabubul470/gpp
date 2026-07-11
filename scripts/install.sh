@@ -1,10 +1,10 @@
 #!/bin/sh
 # gpp installer. Builds from source with cargo (the supported path until
 # prebuilt binaries are published). Usage:
-#   curl -fsSL https://raw.githubusercontent.com/gpp-vcs/gpp/main/scripts/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/mahabubul470/gpp/main/scripts/install.sh | sh
 set -eu
 
-REPO="${GPP_REPO:-https://github.com/gpp-vcs/gpp}"
+REPO="${GPP_REPO:-https://github.com/mahabubul470/gpp}"
 
 err() { echo "install: $*" >&2; exit 1; }
 command -v cargo >/dev/null 2>&1 || err "cargo not found — install Rust from https://rustup.rs"

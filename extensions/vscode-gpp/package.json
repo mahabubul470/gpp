@@ -3,7 +3,7 @@
   "displayName": "gpp (git++)",
   "description": "Timeline, Graphex, semantic diff and review for gpp inside VS Code.",
   "version": "0.1.0",
-  "publisher": "gpp-vcs",
+  "publisher": "mahabubul470",
   "engines": { "vscode": "^1.85.0" },
   "categories": ["SCM Providers", "Other"],
   "activationEvents": ["workspaceContains:.gpp"],

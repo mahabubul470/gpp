@@ -568,7 +568,7 @@ struct RelayNode {
 gpp-relay --port 9473 --storage /data/gpp --max-repos 100
 
 # Or via Docker
-docker run -p 9473:9473 -v /data:/data ghcr.io/gpp-vcs/gpp-relay
+docker run -p 9473:9473 -v /data:/data ghcr.io/mahabubul470/gpp-relay
 ```
 
 ### Relay vs GitHub
@@ -870,7 +870,7 @@ Linked to PROJ-2847
 A `gh` extension that bridges gpp commands into the GitHub workflow:
 
 ```bash
-gh extension install gpp-vcs/gh-gpp
+gh extension install mahabubul470/gh-gpp
 
 gh gpp promote                    # Promote + push + create PR with enriched body
 gh gpp review                     # Review changeset with Graphex context

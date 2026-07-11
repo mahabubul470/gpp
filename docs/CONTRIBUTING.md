@@ -12,7 +12,7 @@
 ### Clone & Build
 
 ```bash
-git clone https://github.com/gpp-vcs/gpp.git
+git clone https://github.com/mahabubul470/gpp.git
 cd gpp
 cargo build
 cargo test --workspace

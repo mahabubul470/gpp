@@ -1,7 +1,7 @@
 # Command reference
 
 The authoritative, exhaustive spec lives in
-[`docs/CLI_SPEC.md`](https://github.com/gpp-vcs/gpp/blob/main/docs/CLI_SPEC.md).
+[`docs/CLI_SPEC.md`](https://github.com/mahabubul470/gpp/blob/main/docs/CLI_SPEC.md).
 `gpp <command> --help` is generated from the same definitions.
 
 Quick map:

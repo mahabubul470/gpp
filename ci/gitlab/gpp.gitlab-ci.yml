@@ -2,7 +2,7 @@
 # Include from your .gitlab-ci.yml:
 #
 #   include:
-#     - remote: 'https://raw.githubusercontent.com/gpp-vcs/gpp/main/ci/gitlab/gpp.gitlab-ci.yml'
+#     - remote: 'https://raw.githubusercontent.com/mahabubul470/gpp/main/ci/gitlab/gpp.gitlab-ci.yml'
 #
 # Provides three jobs: policy check (blocking), trust gate, audit artifact.
 
@@ -10,7 +10,7 @@
   image: rust:1-slim
   before_script:
     - apt-get update && apt-get install -y --no-install-recommends pkg-config libssl-dev cmake clang git
-    - cargo install --git https://github.com/gpp-vcs/gpp gpp-cli || true
+    - cargo install --git https://github.com/mahabubul470/gpp gpp-cli || true
     - gpp init . >/dev/null 2>&1 || true
     - gpp git-import .
 

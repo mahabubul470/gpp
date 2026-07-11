@@ -10,7 +10,7 @@ runs:
   steps:
     - name: Install gpp
       shell: bash
-      run: cargo install --git https://github.com/gpp-vcs/gpp gpp-cli || true
+      run: cargo install --git https://github.com/mahabubul470/gpp gpp-cli || true
     - name: Import Git history into gpp
       shell: bash
       run: |

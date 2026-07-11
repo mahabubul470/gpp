@@ -8,7 +8,7 @@ to your GitHub workflow.
 ```bash
 gh extension install ./extensions/gh-gpp     # from a gpp checkout
 # or, once published:
-gh extension install gpp-vcs/gh-gpp
+gh extension install mahabubul470/gh-gpp
 ```
 
 Requires `gpp` and `gh` on `PATH`, and `GITHUB_TOKEN` for PR creation.

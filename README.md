@@ -14,18 +14,19 @@ full specification (architecture, data model, CLI, protocols, roadmap), and
 for the per-phase deliverables and documented deviations, and
 [`docs/TODO.md`](docs/TODO.md) for the prioritized backlog of what's next.
 
-Verified 2026-06-23: **133 workspace tests pass**, `cargo clippy` and
+Verified 2026-07-12: **177 workspace tests pass**, `cargo clippy` and
 `cargo fmt` clean, full workspace builds. No stub crates remain — every
-crate has a working implementation.
+crate has a working implementation. Coverage is measured in CI
+(`cargo llvm-cov`; 65.7% line at baseline, being raised).
 
-The test suite is currently all in-crate unit tests (no `tests/`
-integration dirs yet) and its depth is **uneven**: foundational layers are
-well covered (`gpp-core` 23, `gpp-graphex` 17, `gpp-diff` 13, CLI 16),
-while several integration/UI crates have only smoke-level coverage
-(`gpp-sdk` 1; `gpp-notify`/`gpp-rbac`/`gpp-replay`/`gpp-tui` 2 each).
-"Implemented" here means *built and smoke-tested against its milestone*,
-not *exhaustively tested or hardened* everywhere. Closing that gap is the
-top item in [`docs/TODO.md`](docs/TODO.md).
+Test depth is still **uneven**: foundational layers are well covered
+(`gpp-core`, `gpp-graphex`, `gpp-diff`, `gpp-tui` ≥ 80% line; the CLI has
+end-to-end suites for policy enforcement, cost reporting, reviewer
+assignment and belief bisect), while several integration crates remain at
+smoke-level (`gpp-sdk`, `gpp-notify`, `gpp-rbac`, `gpp-replay`).
+"Implemented" here means *built and tested against its milestone*, not
+*exhaustively hardened* everywhere. Closing that gap is the top item in
+[`docs/TODO.md`](docs/TODO.md).
 
 | Layer | Crate | What's implemented |
 |---|---|---|
@@ -57,8 +58,8 @@ platform-review polling, apt/dpkg packages, passphrase-wrapped master key.
 ## Install
 
 ```bash
-cargo install --git https://github.com/gpp-vcs/gpp gpp-cli     # the `gpp` binary
-cargo install --git https://github.com/gpp-vcs/gpp gpp-relay   # relay node
+cargo install --git https://github.com/mahabubul470/gpp gpp-cli     # the `gpp` binary
+cargo install --git https://github.com/mahabubul470/gpp gpp-relay   # relay node
 ```
 
 ## Build & test
