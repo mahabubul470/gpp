@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "gpp": {
+      "command": "target/release/gpp",
+      "args": ["mcp-server", "--stdio"]
+    }
+  }
+}
