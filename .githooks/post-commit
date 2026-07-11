@@ -1,0 +1,29 @@
+#!/bin/sh
+# Keep gpp in sync with git and surface stale beliefs after every commit.
+#
+# Enable once per clone:   git config core.hooksPath .githooks
+# Non-fatal by design: silently skips when gpp isn't built/installed or the
+# repo has no .gpp state, and never blocks the commit (post-commit anyway).
+
+root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+[ -d "$root/.gpp" ] || exit 0
+
+if command -v gpp >/dev/null 2>&1; then
+    GPP=gpp
+elif [ -x "$root/target/release/gpp" ]; then
+    GPP="$root/target/release/gpp"
+else
+    exit 0
+fi
+
+"$GPP" --repo "$root" git-import "$root" >/dev/null 2>&1 || exit 0
+
+out=$("$GPP" --repo "$root" belief stale 2>/dev/null) || exit 0
+case $out in
+    "all beliefs hold"*)
+        ;; # quiet on the happy path
+    *)
+        printf '\ngpp: this commit left beliefs needing attention —\n%s\n' "$out"
+        ;;
+esac
+exit 0
