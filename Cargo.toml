@@ -76,14 +76,18 @@ regex = "1"
 tree-sitter = "0.24"
 
 # Git interop
-git2 = "0.19"
+# default-features off drops ssh/https (openssl-sys) — the bridge only ever
+# opens local repositories, so no network transport is needed.
+git2 = { version = "0.19", default-features = false }
 
 # Networking
 snow = "0.9"           # Noise protocol
 tokio = { version = "1", features = ["full"] }
 
 # HTTP client (webhooks, platform APIs)
-reqwest = { version = "0.12", features = ["json"] }
+# default-features off drops native-tls/openssl-sys — pure-Rust TLS keeps
+# the workspace C-free and lets macOS x86_64 cross-compile on arm64 runners.
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "charset", "http2"] }
 octocrab = "0.41"      # GitHub API
 
 # Email
