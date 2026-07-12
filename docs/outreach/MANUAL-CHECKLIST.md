@@ -12,7 +12,24 @@ about actually publishing. Ordered — earlier items unblock later ones.
       green), and that a shared link unfurls with the new OG image —
       test in a Slack/Discord DM to yourself.
 
-## 2. First release (v0.1.0)
+## 2. crates.io (do BEFORE posting anywhere — name reservation)
+
+The whole `gpp-*` namespace is free on crates.io (checked 2026-07-12;
+bare `gpp` is taken by an unrelated preprocessor crate — our binary
+crate is `gpp-cli`, which still installs a `gpp` binary). The workspace
+dry-run passes end to end; publishing is wired into release.yml and
+activates once the token exists.
+
+- [ ] Log in at crates.io with GitHub, create an API token
+      (Account Settings → API Tokens, scope: publish-new + publish-update).
+- [ ] Add it as a repo secret named `CARGO_REGISTRY_TOKEN`
+      (Settings → Secrets and variables → Actions).
+- [ ] The v0.1.0 tag below then publishes all 21 crates automatically
+      (or run `cargo publish --workspace` locally with the token).
+- [ ] After publish: update README install to plain
+      `cargo install gpp-cli`.
+
+## 3. First release (v0.1.0)
 
 - [ ] Tag and push: `git tag v0.1.0 && git push origin v0.1.0`
       — release.yml builds 4 targets (linux-x86_64, macos-arm64,
@@ -25,7 +42,7 @@ about actually publishing. Ordered — earlier items unblock later ones.
       paragraph on the wedge + link to the demo GIF and
       demos/belief-bisect. (Generated notes only list commits.)
 
-## 3. Homebrew tap
+## 4. Homebrew tap
 
 - [ ] Create repo `mahabubul470/homebrew-tap`.
 - [ ] Compute the tarball hash:
@@ -36,7 +53,7 @@ about actually publishing. Ordered — earlier items unblock later ones.
       `brew install --build-from-source`). The install docs already
       reference this tap path.
 
-## 4. Publishing the writing
+## 5. Publishing the writing
 
 - [ ] Blog post: `docs/outreach/blog-belief-bisect.md` — publish on the
       Pages site (or leave on GitHub and link the raw doc). If you give
@@ -54,7 +71,7 @@ about actually publishing. Ordered — earlier items unblock later ones.
 - [ ] X/Twitter thread: §(c) outline; attach `site/assets/demo.gif` to
       the first tweet.
 
-## 5. MCP directory listings
+## 6. MCP directory listings
 
 - [ ] Submit `docs/outreach/mcp-listing.md` text as PRs to:
       - modelcontextprotocol/servers (community list)
@@ -63,7 +80,7 @@ about actually publishing. Ordered — earlier items unblock later ones.
       Each wants: name, one-liner, config snippet — all in the listing
       doc verbatim.
 
-## 6. Nice-to-have follow-ups (no account needed, ask Claude)
+## 7. Nice-to-have follow-ups (no account needed, ask Claude)
 
 - [ ] Re-record `scripts/demo.sh` after any CLI output change
       (`asciinema rec --window-size 100x32 --overwrite -c ./scripts/demo.sh site/assets/demo.cast`

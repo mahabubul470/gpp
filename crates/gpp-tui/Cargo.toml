@@ -7,14 +7,14 @@ repository.workspace = true
 description = "gpp interactive terminal UI (ratatui)"
 
 [dependencies]
-gpp-core = { path = "../gpp-core" }
-gpp-timeline = { path = "../gpp-timeline" }
-gpp-history = { path = "../gpp-history" }
-gpp-trust = { path = "../gpp-trust" }
-gpp-anomaly = { path = "../gpp-anomaly" }
-gpp-cost = { path = "../gpp-cost" }
-gpp-review = { path = "../gpp-review" }
-gpp-notify = { path = "../gpp-notify" }
+gpp-core = { path = "../gpp-core", version = "0.1.0" }
+gpp-timeline = { path = "../gpp-timeline", version = "0.1.0" }
+gpp-history = { path = "../gpp-history", version = "0.1.0" }
+gpp-trust = { path = "../gpp-trust", version = "0.1.0" }
+gpp-anomaly = { path = "../gpp-anomaly", version = "0.1.0" }
+gpp-cost = { path = "../gpp-cost", version = "0.1.0" }
+gpp-review = { path = "../gpp-review", version = "0.1.0" }
+gpp-notify = { path = "../gpp-notify", version = "0.1.0" }
 ratatui.workspace = true
 crossterm.workspace = true
 thiserror.workspace = true

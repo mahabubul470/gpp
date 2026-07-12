@@ -11,8 +11,8 @@ name = "gpp-relay"
 path = "src/main.rs"
 
 [dependencies]
-gpp-core = { path = "../gpp-core" }
-gpp-sync = { path = "../gpp-sync" }
+gpp-core = { path = "../gpp-core", version = "0.1.0" }
+gpp-sync = { path = "../gpp-sync", version = "0.1.0" }
 clap.workspace = true
 anyhow.workspace = true
 tracing.workspace = true

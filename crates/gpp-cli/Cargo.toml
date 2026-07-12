@@ -11,25 +11,25 @@ name = "gpp"
 path = "src/main.rs"
 
 [dependencies]
-gpp-core = { path = "../gpp-core" }
-gpp-timeline = { path = "../gpp-timeline" }
-gpp-history = { path = "../gpp-history" }
-gpp-diff = { path = "../gpp-diff" }
-gpp-git-bridge = { path = "../gpp-git-bridge" }
-gpp-graphex = { path = "../gpp-graphex" }
-gpp-sdk = { path = "../gpp-sdk" }
-gpp-trust = { path = "../gpp-trust" }
-gpp-policy = { path = "../gpp-policy" }
-gpp-cost = { path = "../gpp-cost" }
-gpp-anomaly = { path = "../gpp-anomaly" }
-gpp-sync = { path = "../gpp-sync" }
-gpp-replay = { path = "../gpp-replay" }
-gpp-rbac = { path = "../gpp-rbac" }
-gpp-review = { path = "../gpp-review" }
-gpp-notify = { path = "../gpp-notify" }
-gpp-remote = { path = "../gpp-remote" }
-gpp-tui = { path = "../gpp-tui" }
-gpp-deps = { path = "../gpp-deps" }
+gpp-core = { path = "../gpp-core", version = "0.1.0" }
+gpp-timeline = { path = "../gpp-timeline", version = "0.1.0" }
+gpp-history = { path = "../gpp-history", version = "0.1.0" }
+gpp-diff = { path = "../gpp-diff", version = "0.1.0" }
+gpp-git-bridge = { path = "../gpp-git-bridge", version = "0.1.0" }
+gpp-graphex = { path = "../gpp-graphex", version = "0.1.0" }
+gpp-sdk = { path = "../gpp-sdk", version = "0.1.0" }
+gpp-trust = { path = "../gpp-trust", version = "0.1.0" }
+gpp-policy = { path = "../gpp-policy", version = "0.1.0" }
+gpp-cost = { path = "../gpp-cost", version = "0.1.0" }
+gpp-anomaly = { path = "../gpp-anomaly", version = "0.1.0" }
+gpp-sync = { path = "../gpp-sync", version = "0.1.0" }
+gpp-replay = { path = "../gpp-replay", version = "0.1.0" }
+gpp-rbac = { path = "../gpp-rbac", version = "0.1.0" }
+gpp-review = { path = "../gpp-review", version = "0.1.0" }
+gpp-notify = { path = "../gpp-notify", version = "0.1.0" }
+gpp-remote = { path = "../gpp-remote", version = "0.1.0" }
+gpp-tui = { path = "../gpp-tui", version = "0.1.0" }
+gpp-deps = { path = "../gpp-deps", version = "0.1.0" }
 globset.workspace = true
 clap.workspace = true
 anyhow.workspace = true

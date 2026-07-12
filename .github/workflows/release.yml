@@ -43,6 +43,26 @@ jobs:
             gpp-${{ matrix.target }}.tar.gz
             gpp-${{ matrix.target }}.zip
 
+  # Publishes the whole workspace (21 crates, dependency-ordered) when the
+  # CARGO_REGISTRY_TOKEN secret is configured; a no-op otherwise. `gpp` the
+  # crate name is taken on crates.io — the binary crate is `gpp-cli`, which
+  # still installs a binary named `gpp`.
+  crates-io:
+    runs-on: ubuntu-latest
+    env:
+      CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install deps
+        run: sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev cmake clang
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Publish workspace to crates.io
+        if: env.CARGO_REGISTRY_TOKEN != ''
+        run: cargo publish --workspace
+      - name: Skipped (no CARGO_REGISTRY_TOKEN secret)
+        if: env.CARGO_REGISTRY_TOKEN == ''
+        run: echo "crates.io publish skipped — add the CARGO_REGISTRY_TOKEN repo secret to enable"
+
   images:
     runs-on: ubuntu-latest
     permissions: { packages: write, contents: read }

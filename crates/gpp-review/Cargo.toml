@@ -7,8 +7,8 @@ repository.workspace = true
 description = "gpp code review workflow engine"
 
 [dependencies]
-gpp-core = { path = "../gpp-core" }
-gpp-rbac = { path = "../gpp-rbac" }
+gpp-core = { path = "../gpp-core", version = "0.1.0" }
+gpp-rbac = { path = "../gpp-rbac", version = "0.1.0" }
 rusqlite.workspace = true
 thiserror.workspace = true
 tracing.workspace = true

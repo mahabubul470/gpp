@@ -7,8 +7,8 @@ repository.workspace = true
 description = "gpp ↔ Git import/export bridge"
 
 [dependencies]
-gpp-core = { path = "../gpp-core" }
-gpp-history = { path = "../gpp-history" }
+gpp-core = { path = "../gpp-core", version = "0.1.0" }
+gpp-history = { path = "../gpp-history", version = "0.1.0" }
 git2.workspace = true
 rusqlite.workspace = true
 thiserror.workspace = true

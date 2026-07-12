@@ -7,9 +7,9 @@ repository.workspace = true
 description = "gpp CRDT-based P2P sync (Noise transport)"
 
 [dependencies]
-gpp-core = { path = "../gpp-core" }
-gpp-history = { path = "../gpp-history" }
-gpp-graphex = { path = "../gpp-graphex" }
+gpp-core = { path = "../gpp-core", version = "0.1.0" }
+gpp-history = { path = "../gpp-history", version = "0.1.0" }
+gpp-graphex = { path = "../gpp-graphex", version = "0.1.0" }
 snow.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true

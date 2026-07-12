@@ -7,7 +7,7 @@ repository.workspace = true
 description = "gpp continuous timeline capture engine"
 
 [dependencies]
-gpp-core = { path = "../gpp-core" }
+gpp-core = { path = "../gpp-core", version = "0.1.0" }
 rusqlite.workspace = true
 serde.workspace = true
 thiserror.workspace = true
