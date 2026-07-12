@@ -1,0 +1,30 @@
+name: publish-crates
+# Resumable crates.io publisher. `cargo publish --workspace` aborts when any
+# crate version already exists, so partial publishes (e.g. after hitting the
+# new-crate rate limit: burst, then ~1 per 10 min) can't be resumed with it.
+# This walks the workspace crate by crate instead: skips versions already on
+# the index, defers crates whose gpp deps aren't up yet, and sleeps through
+# 429s. Idempotent — safe to dispatch repeatedly.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    env:
+      CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install deps
+        run: sudo apt-get update && sudo apt-get install -y pkg-config cmake clang jq
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Publish missing crates
+        if: env.CARGO_REGISTRY_TOKEN != ''
+        run: ./scripts/publish-crates.sh
+      - name: Skipped (no token)
+        if: env.CARGO_REGISTRY_TOKEN == ''
+        run: echo "no CARGO_REGISTRY_TOKEN secret configured"

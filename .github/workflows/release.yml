@@ -58,16 +58,10 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Publish workspace to crates.io
         if: env.CARGO_REGISTRY_TOKEN != ''
-        # crates.io rate-limits NEW crate names (burst, then 1 per 10 min).
-        # --workspace skips already-published versions, so retrying after
-        # each window makes forward progress until all crates are through.
-        run: |
-          for attempt in $(seq 1 20); do
-            if cargo publish --workspace; then exit 0; fi
-            echo "::warning::publish attempt $attempt rate-limited; waiting 10m30s"
-            sleep 630
-          done
-          exit 1
+        # Per-crate resumable publish — survives crates.io's new-crate rate
+        # limit and re-runs after partial publishes (which abort the plain
+        # `cargo publish --workspace`). Same script as publish-crates.yml.
+        run: ./scripts/publish-crates.sh
       - name: Skipped (no CARGO_REGISTRY_TOKEN secret)
         if: env.CARGO_REGISTRY_TOKEN == ''
         run: echo "crates.io publish skipped — add the CARGO_REGISTRY_TOKEN repo secret to enable"
