@@ -45,7 +45,7 @@ Rust · Local / stdio
 }
 ```
 
-Install: `cargo install --git https://github.com/mahabubul470/gpp gpp-cli`,
+Install: `cargo install gpp-cli`,
 then `gpp init --graphex .` in the project. If running from a source
 checkout instead of PATH, use `"command": "target/release/gpp"` (this is
 the repo's own working `.mcp.json`).

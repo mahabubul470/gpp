@@ -1,16 +1,29 @@
 # Installation
 
-## From source (cargo)
+## From crates.io (recommended)
 
 ```bash
-cargo install --git https://github.com/mahabubul470/gpp gpp-cli
+cargo install gpp-cli
 ```
 
 This builds the `gpp` binary. The relay is a separate binary:
 
 ```bash
-cargo install --git https://github.com/mahabubul470/gpp gpp-relay
+cargo install gpp-relay
 ```
+
+To track unreleased development instead, install from git:
+
+```bash
+cargo install --git https://github.com/mahabubul470/gpp gpp-cli
+```
+
+## Prebuilt binaries
+
+Each [GitHub release](https://github.com/mahabubul470/gpp/releases)
+attaches archives for Linux x86_64, macOS (Apple Silicon and Intel),
+and Windows x86_64 — unpack and put `gpp` (and optionally `gpp-relay`)
+on your `PATH`.
 
 ## Homebrew
 

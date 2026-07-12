@@ -165,7 +165,7 @@ should be a view over history, not a file beside it.**
 ## Try it
 
 ```bash
-cargo install --git https://github.com/mahabubul470/gpp gpp-cli
+cargo install gpp-cli
 
 gpp init --graphex .
 gpp belief add --claim "token expiry is 24h" --evidence auth/token.rs:7-7

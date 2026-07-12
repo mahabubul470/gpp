@@ -24,10 +24,13 @@ activates once the token exists.
       (Account Settings → API Tokens, scope: publish-new + publish-update).
 - [ ] Add it as a repo secret named `CARGO_REGISTRY_TOKEN`
       (Settings → Secrets and variables → Actions).
-- [ ] The v0.1.0 tag below then publishes all 21 crates automatically
-      (or run `cargo publish --workspace` locally with the token).
-- [ ] After publish: update README install to plain
-      `cargo install gpp-cli`.
+- [x] v0.1.0 tag pushed 2026-07-12; publish in progress (crates.io
+      rate-limits new crate names to ~1/10min — an automated rerun loop
+      is grinding through all 21; the release workflow now retries
+      across windows for future releases).
+- [x] README/site/docs install commands switched to
+      `cargo install gpp-cli` (git variant documented as the
+      development path).
 
 ## 3. First release (v0.1.0)
 

@@ -21,7 +21,7 @@ deterministic, reproducible, no mockups.)*
 ## 30-second try
 
 ```bash
-cargo install --git https://github.com/mahabubul470/gpp gpp-cli
+cargo install gpp-cli
 
 gpp init --graphex
 echo "fn main() {}" > main.rs
@@ -141,14 +141,19 @@ outbound platform-review sync, apt/dpkg packages.
 ## Install / build
 
 ```bash
-cargo install --git https://github.com/mahabubul470/gpp gpp-cli     # the `gpp` binary
-cargo install --git https://github.com/mahabubul470/gpp gpp-relay   # relay node (optional)
+cargo install gpp-cli                    # the `gpp` binary (crates.io)
+cargo install gpp-relay                  # relay node (optional)
 
 # or from a clone
 cargo build --release
 cargo test --workspace
 cargo bench -p gpp-core -p gpp-diff      # criterion perf suite
 ```
+
+Prebuilt binaries for Linux, macOS (ARM + Intel), and Windows are
+attached to [each release](https://github.com/mahabubul470/gpp/releases);
+`cargo install --git https://github.com/mahabubul470/gpp gpp-cli` tracks
+unreleased development.
 
 ## More to try
 
