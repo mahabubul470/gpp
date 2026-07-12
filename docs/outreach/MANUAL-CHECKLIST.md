@@ -20,9 +20,9 @@ crate is `gpp-cli`, which still installs a `gpp` binary). The workspace
 dry-run passes end to end; publishing is wired into release.yml and
 activates once the token exists.
 
-- [ ] Log in at crates.io with GitHub, create an API token
+- [x] Log in at crates.io with GitHub, create an API token
       (Account Settings → API Tokens, scope: publish-new + publish-update).
-- [ ] Add it as a repo secret named `CARGO_REGISTRY_TOKEN`
+- [x] Add it as a repo secret named `CARGO_REGISTRY_TOKEN`
       (Settings → Secrets and variables → Actions).
 - [x] All 21 crates published to crates.io 2026-07-12; `cargo install
       gpp-cli` verified end to end from a clean root (installs, inits,
@@ -34,16 +34,15 @@ activates once the token exists.
 
 ## 3. First release (v0.1.0)
 
-- [ ] Tag and push: `git tag v0.1.0 && git push origin v0.1.0`
+- [x] Tag and push: `git tag v0.1.0 && git push origin v0.1.0`
       — release.yml builds 4 targets (linux-x86_64, macos-arm64,
       macos-x86_64, windows-msvc) + pushes Docker images to ghcr.io,
       and creates the GitHub Release with generated notes.
       **Watch the first run** — the Windows and macos-x86_64 legs are
       new and unverified; if one fails, the others still upload
       (fail-fast is off).
-- [ ] After the release exists, edit the release notes intro: one
-      paragraph on the wedge + link to the demo GIF and
-      demos/belief-bisect. (Generated notes only list commits.)
+- [x] Release notes intro added 2026-07-12 (wedge paragraph, install
+      line, honest-scope note, demo links).
 
 ## 4. Homebrew tap
 
