@@ -1,7 +1,7 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.mahabubul470/gpp",
-  "description": "Version-control-native project memory: knowledge graph with history-checked belief staleness, changeset proposals, and token cost reporting from an AI-native VCS in Rust.",
+  "description": "Project knowledge graph with history-checked belief staleness, changeset proposals, cost reporting",
   "repository": {
     "url": "https://github.com/mahabubul470/gpp",
     "source": "github"
