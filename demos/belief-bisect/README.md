@@ -175,13 +175,19 @@ INVALIDATED  cs:fhcpef7c  2026-06-03
 No benchmark claim intended — the value is operational: audit, staleness,
 and time-travel over knowledge, with provenance the repo already had.
 
-## Recording
+## Recordings
 
-`belief-bisect.cast` (18 s, 100×30) is the recorded walkthrough — play it
-with `asciinema play demos/belief-bisect/belief-bisect.cast`. To re-record
-after output changes:
+`belief-bisect.cast` (18 s, 100×30) is the synthetic walkthrough;
+`matrix-flask.cast` (42 s, 100×32, idle-capped) is the real-history flask
+1.1.0→2.0.0 validation run, culprits asserted live. Play with
+`asciinema play demos/belief-bisect/<name>.cast`. To re-record after
+output changes:
 
 ```
 asciinema rec --window-size 100x30 --overwrite \
     -c ./demos/belief-bisect/record-demo.sh demos/belief-bisect/belief-bisect.cast
+
+W=$(mktemp -d) && git clone --quiet https://github.com/pallets/flask.git $W/flask
+MATRIX_WORK=$W asciinema rec --idle-time-limit 2 --window-size 100x32 --overwrite \
+    -c ./demos/belief-bisect/record-matrix-demo.sh demos/belief-bisect/matrix-flask.cast
 ```

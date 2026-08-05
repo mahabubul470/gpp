@@ -8,12 +8,15 @@
 # up yet, sleeps through 429s. Needs CARGO_REGISTRY_TOKEN in the env.
 set -u
 
-ver=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
-crates=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[].name')
+# name<space>version per crate — crates may diverge from the workspace
+# version (e.g. gpp-cli 0.1.1 shipping a README-only bump).
+crates=$(cargo metadata --no-deps --format-version 1 \
+    | jq -r '.packages[] | "\(.name) \(.version)"')
 
 # Sparse-index lookup (names >= 4 chars: /ab/cd/name).
 index_has() {
     name=$1
+    ver=$2
     p1=$(printf '%s' "$name" | cut -c1-2)
     p2=$(printf '%s' "$name" | cut -c3-4)
     curl -sf "https://index.crates.io/$p1/$p2/$name" 2>/dev/null | grep -q "\"vers\":\"$ver\""
@@ -21,8 +24,9 @@ index_has() {
 
 for round in $(seq 1 60); do
     missing=0
-    for c in $crates; do
-        if index_has "$c"; then continue; fi
+    for pair in $(printf '%s\n' "$crates" | tr ' ' ','); do
+        c=${pair%,*}; ver=${pair#*,}
+        if index_has "$c" "$ver"; then continue; fi
         missing=$((missing + 1))
         echo "── round $round: publishing $c@$ver"
         if cargo publish -p "$c" --no-verify 2>publish.err; then
@@ -40,7 +44,7 @@ for round in $(seq 1 60); do
         fi
     done
     if [ "$missing" = "0" ]; then
-        echo "ALL $ver CRATES PUBLISHED"
+        echo "ALL CRATES PUBLISHED AT THEIR MANIFEST VERSIONS"
         exit 0
     fi
     echo "── round $round done, $missing crate(s) still missing"
