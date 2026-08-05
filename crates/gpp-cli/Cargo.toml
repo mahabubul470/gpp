@@ -1,10 +1,14 @@
 [package]
 name = "gpp-cli"
-version.workspace = true
+# Overrides the 0.1.0 workspace version: 0.1.1 ships the crate README with
+# the visible `mcp-name` token the MCP Registry requires for ownership
+# verification (crates.io READMEs are per-version, embedded at publish).
+version = "0.1.1"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
 description = "gpp command-line interface"
+readme = "README.md"
 
 [[bin]]
 name = "gpp"

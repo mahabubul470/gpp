@@ -8,7 +8,8 @@ about actually publishing. Ordered — earlier items unblock later ones.
 
 - [x] **Description / Website / Topics** — set 2026-07-12 via
       `gh repo edit` (description, homepage, and all 7 topics verified).
-- [ ] Confirm the deployed site renders as intended (Pages deploy is
+- [x] Confirm the deployed site renders as intended — verified 2026-08-06
+      (title, hero, demo GIF, all sections render). (Pages deploy is
       green), and that a shared link unfurls with the new OG image —
       test in a Slack/Discord DM to yourself.
 
@@ -78,12 +79,20 @@ activates once the token exists.
 
 ## 6. MCP directory listings
 
-- [ ] Submit `docs/outreach/mcp-listing.md` text as PRs to:
-      - modelcontextprotocol/servers (community list)
-      - punkpeye/awesome-mcp-servers (or the currently-canonical
-        awesome list)
-      Each wants: name, one-liner, config snippet — all in the listing
-      doc verbatim.
+- [x] punkpeye/awesome-mcp-servers — PR opened 2026-08-06 (Version
+      Control section, agent fast-track title):
+      <https://github.com/punkpeye/awesome-mcp-servers/pull/11586>.
+      Watch for maintainer feedback.
+- [~] Official MCP Registry (registry.modelcontextprotocol.io) — the
+      modelcontextprotocol/servers community list was *retired* in favor
+      of this registry. Wired up 2026-08-06: `server.json` at repo root
+      (name `io.github.mahabubul470/gpp`, cargo package `gpp-cli`),
+      crate README with the visible `mcp-name:` ownership token,
+      gpp-cli bumped to 0.1.1 (crates.io READMEs are per-version), and
+      `.github/workflows/mcp-registry-publish.yml` (GitHub OIDC, no
+      secrets). Sequence: publish-crates workflow (gpp-cli 0.1.1) →
+      mcp-registry-publish workflow. Verify at
+      <https://registry.modelcontextprotocol.io/> afterwards.
 
 ## 7. Nice-to-have follow-ups (no account needed, ask Claude)
 

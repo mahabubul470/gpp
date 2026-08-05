@@ -1,0 +1,27 @@
+name: mcp-registry-publish
+# Publishes server.json to the official MCP Registry
+# (registry.modelcontextprotocol.io) using GitHub OIDC — no secrets needed.
+# Prereq: the crates.io gpp-cli version referenced by server.json must be
+# live, with the `mcp-name: io.github.mahabubul470/gpp` token visible in its
+# rendered README (ownership verification). Dispatch manually per release.
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install mcp-publisher
+        run: |
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" \
+            | tar xz mcp-publisher
+      - name: Login (GitHub OIDC)
+        run: ./mcp-publisher login github-oidc
+      - name: Publish
+        run: ./mcp-publisher publish

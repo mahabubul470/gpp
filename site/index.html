@@ -366,12 +366,14 @@
 <section id="staleness">
   <div class="wrap">
     <div class="sec-kicker">Validated on real history</div>
-    <h2>Belief bisect, run against axum 0.6 → 0.7.</h2>
+    <h2>Five repos, four languages, 21 beliefs — every culprit pinned.</h2>
     <p class="sec-desc">
-      Five beliefs seeded at axum v0.6.0 with evidence spans in the real
-      source, then bisected across 288 commits to v0.7.0 (imported through
-      the git bridge). Every invalidated belief lands on a commit documented
-      in axum's own changelog — and the control belief correctly survives.
+      Beliefs seeded true at an old release tag with evidence spans in the
+      real source, bisected across a major version imported through the git
+      bridge, and asserted against pinned expected commits: axum 0.6→0.7
+      (Rust, 288 commits), flask 1.1→2.0 (Python, 221), clap 3→4 (Rust,
+      616), zod 3→4 (TypeScript, 1237), go-redis 8→9 (Go, 388). All 21
+      expectations pass. The axum run in detail:
     </p>
     <table class="proof-table">
       <tr><th>Belief (true at v0.6.0)</th><th>Verdict</th><th>Culprit commit</th></tr>
@@ -399,7 +401,11 @@
     <p class="fineprint">
       Scope-only intersection marks a belief <i>stale-candidate</i>, never false;
       only evidence-span content change or deletion marks it <i>invalidated</i>.
-      Evidence spans are drift-adjusted commit by commit. Full run + method:
+      Evidence spans are drift-adjusted commit by commit. The wider matrix also
+      catches quiet mid-series fixes (zod's nil-UUID regex widening, #483) and
+      reports undocumented reorgs honestly (clap's internal flatten kills
+      file-anchored evidence at the true moment it vanished). Full matrix,
+      per-repo configs + method:
       <a href="https://github.com/mahabubul470/gpp/tree/main/demos/belief-bisect">demos/belief-bisect</a>.
       Import of 1,251 commits ≈ 8s; a full bisect rescan ≈ 0.5s.
     </p>
