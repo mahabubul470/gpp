@@ -83,16 +83,15 @@ activates once the token exists.
       Control section, agent fast-track title):
       <https://github.com/punkpeye/awesome-mcp-servers/pull/11586>.
       Watch for maintainer feedback.
-- [~] Official MCP Registry (registry.modelcontextprotocol.io) — the
+- [x] Official MCP Registry (registry.modelcontextprotocol.io) — the
       modelcontextprotocol/servers community list was *retired* in favor
-      of this registry. Wired up 2026-08-06: `server.json` at repo root
-      (name `io.github.mahabubul470/gpp`, cargo package `gpp-cli`),
-      crate README with the visible `mcp-name:` ownership token,
-      gpp-cli bumped to 0.1.1 (crates.io READMEs are per-version), and
+      of this registry. **Published and verified live 2026-08-06**:
+      `io.github.mahabubul470/gpp`, status `active` (cargo package
+      `gpp-cli` 0.1.1 with the visible `mcp-name:` ownership token in
+      its crates.io README). Publishing is repeatable per release via
       `.github/workflows/mcp-registry-publish.yml` (GitHub OIDC, no
-      secrets). Sequence: publish-crates workflow (gpp-cli 0.1.1) →
-      mcp-registry-publish workflow. Verify at
-      <https://registry.modelcontextprotocol.io/> afterwards.
+      secrets): bump the versions in `server.json`, publish the crate,
+      dispatch the workflow. Registry caps `description` at 100 chars.
 
 ## 7. Nice-to-have follow-ups (no account needed, ask Claude)
 
