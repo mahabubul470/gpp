@@ -6,8 +6,8 @@ from a recorded run of `demos/belief-bisect/run-axum-demo.sh`.*
 
 Every serious agent setup now carries a memory: a `CLAUDE.md`, a memory
 bank, a knowledge file, or one of the newer git-like memory stores
-(Memoria, DiffMem, Git Context Controller). They all share a failure mode
-nobody talks about much: the memory doesn't know when the code moved.
+(Memoria, DiffMem, Git Context Controller). They all share a failure
+mode: the memory doesn't know when the code moved.
 
 ```markdown
 ## Auth notes
@@ -17,6 +17,20 @@ nobody talks about much: the memory doesn't know when the code moved.
 That line gets served verbatim into your agent's context, every session,
 months after someone changed the constant. Nothing flags it. The agent
 confidently builds on a fact that stopped being true in June.
+
+This failure mode now has measurements attached. The
+[STALE benchmark](https://arxiv.org/abs/2605.06527) (May 2026) tests
+exactly this question — can an agent tell that a stored belief has been
+invalidated by later evidence? — and the best frontier model evaluated
+managed **55.2% overall accuracy**, with specialized memory frameworks
+doing no better. A related result on
+[temporal validity in retrieval memory](https://arxiv.org/abs/2606.26511)
+reports RAG pipelines serving stale facts 15–40% of the time when forced
+to commit to an answer. Both study everyday-fact memory, not code — but
+code makes the problem *harder*, not easier: the thing invalidating your
+memory is a commit another agent pushed an hour ago, at machine speed.
+Asking a model to notice is the wrong tool. The invalidation event is
+already sitting in version control.
 
 ## The parallel-store tax
 
@@ -136,6 +150,39 @@ Two details in the output are worth a close look:
 Timing on that run: importing all 1,251 commits reachable from v0.7.0 took
 about 8 seconds; a full `belief bisect` re-scan over the 288-commit range
 takes about 0.5 seconds. No model, no network.
+
+## Where this sits among the neighbors
+
+The space around this got busy in 2026, so it's worth being precise about
+what each neighbor does and doesn't do:
+
+- **Session-capture tools** ([Entire](https://entire.io),
+  [re_gent](https://news.ycombinator.com/item?id=48063548)) record *how
+  code was written* — agent prompts, checkpoints, provenance, down to
+  `entire blame` tracing a line back to its session. That's the
+  provenance half of the problem (gpp's timeline layer does this too).
+  None of them track whether *what you believe about the code* is still
+  true.
+- **Codebase knowledge graphs** ([Cognee](https://www.cognee.ai),
+  Potpie, GraphRAG-style code memory) rebuild a graph from the code,
+  incrementally, keyed on file timestamps. On re-ingestion they can
+  *prune* a stale node — but they can't name the commit that staled it,
+  say when it happened, or show you what was believed before. The
+  history isn't part of the store.
+- **Git-like memory stores** (Memoria, DiffMem, Git Context Controller)
+  version the *memory* — you can diff your notes. But the notes' history
+  and the code's history are separate stores, so code-drift still has to
+  be detected semantically, after the fact.
+- **Agent-native VCSes** ([Atomic](https://github.com/atomicdotdev/atomic),
+  [Oak](https://news.ycombinator.com/item?id=48631726)) rethink the
+  version control substrate — patch theory, virtual mounts, token
+  efficiency. Closest in spirit to gpp's platform, but neither hosts
+  claims about the code, so neither can rule on their staleness.
+
+The missing combination is the one this post is about: knowledge
+anchored *on* the code's own history, so invalidation is witnessed by
+the same event stream that caused it — deterministically, with the
+culprit commit attached.
 
 ## What this doesn't do (yet)
 

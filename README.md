@@ -43,8 +43,12 @@ gpp belief bisect "token expiry is 24h"
 ```
 
 Deterministic — diff intersection and blob hashes, zero LLM or network
-calls. See [`demos/belief-bisect/`](demos/belief-bisect/) for the full
-walkthrough, including validation against axum's real 0.6→0.7 history.
+calls. (For scale: asked to *judge* whether a stored memory has been
+invalidated, the best frontier model manages 55.2% accuracy on the
+[STALE benchmark](https://arxiv.org/abs/2605.06527) — here it's a
+history query, not a judgment.) See
+[`demos/belief-bisect/`](demos/belief-bisect/) for the full walkthrough,
+including validation against axum's real 0.6→0.7 history.
 
 ## What makes it different
 

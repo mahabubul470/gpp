@@ -46,11 +46,14 @@ activates once the token exists.
 
 ## 4. Homebrew tap
 
-- [ ] Create repo `mahabubul470/homebrew-tap`.
-- [ ] Compute the tarball hash:
-      `curl -sL https://github.com/mahabubul470/gpp/archive/refs/tags/v0.1.0.tar.gz | sha256sum`
-- [ ] Copy `packaging/homebrew/gpp.rb` into the tap as `Formula/gpp.rb`
-      with the real `sha256`, push.
+- [x] Create repo `mahabubul470/homebrew-tap`. Done 2026-08-06:
+      <https://github.com/mahabubul470/homebrew-tap>.
+- [x] Compute the tarball hash — done 2026-08-06:
+      `aca859e00ca4bd8b5c7559137264bf2ec549cba5744db0666fb1cc2fa778197e`,
+      already filled into `packaging/homebrew/gpp.rb` (unneeded cmake
+      build dep dropped at the same time — nothing in Cargo.lock uses it).
+- [x] Copy `packaging/homebrew/gpp.rb` into the tap as `Formula/gpp.rb`,
+      push. Done 2026-08-06 (`Formula/gpp.rb` + README on `main`).
 - [ ] Verify: `brew install mahabubul470/tap/gpp` on a Mac (or
       `brew install --build-from-source`). The install docs already
       reference this tap path.

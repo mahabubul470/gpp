@@ -3,7 +3,10 @@
 Drafts for Show HN, r/rust, and X. One wedge everywhere: agent memory
 goes stale silently; a VCS that hosts the memory on its own history can
 witness the staleness. Everything claimed is runnable in the current
-build. No benchmark or "smarter agents" claims — operational claims only.
+build. No benchmark or "smarter agents" claims *about gpp* — operational
+claims only. The STALE figure (55.2%, arXiv 2605.06527) is cited as
+third-party evidence of the problem; it measures frontier models on
+everyday-fact memory, and gpp claims no score on it.
 
 ---
 
@@ -18,14 +21,26 @@ build. No benchmark or "smarter agents" claims — operational claims only.
 > Every agent memory system (CLAUDE.md files, memory banks, git-like
 > memory stores) shares a failure mode: the memory doesn't know when the
 > code moved, so stale facts get served verbatim until something re-reads
-> and re-checks them. Gpp hosts the knowledge graph on the repo's own
-> changeset stream, so staleness is a deterministic history query — diff
-> intersection plus evidence-span blob hashes, no LLM, no network — and
-> `gpp belief bisect` names the exact commit that staled a fact, with the
-> offending hunk. Validated on real history: five beliefs seeded at axum
-> 0.6.0, bisected across 288 commits to 0.7.0; all four invalidated
-> beliefs land on commits in axum's own changelog (#1751, #1868), and the
-> control belief (`State<T>`) correctly survives.
+> and re-checks them. This gap was recently measured — on the STALE
+> benchmark (arXiv 2605.06527), the best frontier model detects that a
+> stored belief has been invalidated only 55.2% of the time. Gpp makes
+> the code half of that problem a history query instead of a model
+> judgment: it hosts the knowledge graph on the repo's own changeset
+> stream, so staleness is deterministic — diff intersection plus
+> evidence-span blob hashes, no LLM, no network — and `gpp belief bisect`
+> names the exact commit that staled a fact, with the offending hunk.
+> Validated on real history: five beliefs seeded at axum 0.6.0, bisected
+> across 288 commits to 0.7.0; all four invalidated beliefs land on
+> commits in axum's own changelog (#1751, #1868), and the control belief
+> (`State<T>`) correctly survives.
+>
+> How it differs from the neighbors: session-capture tools (Entire,
+> re_gent) record how code was written but not whether what you believe
+> about it is still true; codebase knowledge graphs (Cognee, Potpie)
+> prune stale nodes on re-ingestion but can't name the commit that
+> staled one; git-like memory stores version the notes, not the code
+> the notes are about. gpp anchors the claims on the code's own history,
+> so the invalidation event and the belief live in the same store.
 >
 > Repo: https://github.com/mahabubul470/gpp
 > Write-up: https://github.com/mahabubul470/gpp/blob/main/docs/outreach/blog-belief-bisect.md
@@ -45,8 +60,12 @@ the text in a first comment if the text field feels long.)*
 **Body:**
 
 > I've been building gpp, a version control system in Rust aimed at
-> repos where AI agents contribute continuously. The feature I'd most
-> like eyes on: the repo's knowledge graph can hold *beliefs* — claims
+> repos where AI agents contribute continuously. Context for why: the
+> STALE benchmark (arXiv 2605.06527, May 2026) showed the best frontier
+> model detects that a stored memory has been invalidated only 55.2% of
+> the time — and for *code*, the invalidating event is already sitting
+> in version control, so asking a model is the wrong tool. The feature
+> I'd most like eyes on: the repo's knowledge graph can hold *beliefs* — claims
 > anchored at a changeset with evidence spans — and staleness checking is
 > a pure history computation: first-parent walk to the anchor, tree
 > flatten + diff intersection per commit, evidence spans drift-adjusted
@@ -95,8 +114,9 @@ the text in a first comment if the text field feels long.)*
 
 **1/** Your coding agent's memory goes stale silently. That CLAUDE.md
 line — "token expiry is 24h" — has been false since a commit in June,
-and nothing flagged it. We made staleness a version-control query.
-Deterministic, offline, zero LLM calls.
+and nothing flagged it. On the STALE benchmark, the best frontier model
+catches an invalidated memory 55.2% of the time. We made staleness a
+version-control query instead. Deterministic, offline, zero LLM calls.
 
 **2/** The structural problem: memory systems (memory banks, git-like
 memory stores) live *beside* the repo, so drift must be *detected* —

@@ -334,7 +334,10 @@
       Every serious agent setup carries a memory — a CLAUDE.md, a memory bank,
       a git-like memory store. They all keep knowledge <i>beside</i> the
       repository, so drift between memory and code has to be detected after
-      the fact: re-read, re-embed, ask a model. gpp hosts knowledge on the
+      the fact: re-read, re-embed, ask a model. And models are bad judges of
+      their own memory — on the <a href="https://arxiv.org/abs/2605.06527">STALE
+      benchmark</a> the best frontier model spots an invalidated memory 55.2%
+      of the time. gpp hosts knowledge on the
       repo's <i>own</i> event stream, so drift is <b style="color:var(--text)">witnessed</b> —
       the change that staled a fact arrives as a commit with author, time, and
       diff attached.
