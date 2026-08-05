@@ -222,3 +222,40 @@ and which commit did it?"
 Naming discipline (per handoff §0): scope-only intersection ⇒
 `StaleCandidate`; only evidence-span content change ⇒ `Invalidated`.
 No accuracy claims anywhere; operational/audit value only.
+
+## 2026-08-06 — Validation matrix (5 repos × 4 grammars) + latency measurements
+
+**Belief-bisect validation matrix.** Generalized the axum demo into
+`demos/belief-bisect/run-repo-demo.sh` + `repos/{flask,clap,zod,go-redis}.conf`.
+Each config pins OLD/NEW commits (never floats), seeds beliefs whose evidence
+lines were verified against the pinned old tree, advances across the major
+version through the git bridge, bisects, and *asserts* the culprit equals a
+pinned expected commit. Result: **16/16 expectations pass** (12 invalidations +
+4 controls), on top of axum's original 5.
+
+Method notes (for reproducing the evidence-selection discipline):
+- Expected culprits were derived with `git log --first-parent -S"<exact
+  evidence line>" old..new -- <file> | tail -1` — content-count change per
+  path approximates the engine's span semantics and catches file deletion.
+  (First attempt used `git log -L`; **wrong** — `-L` interprets line numbers
+  at the *newest* end of the range.)
+- Span choice matters: flask 2.0 also ran a repo-wide typing pass (#3973), so
+  spans were chosen whose *first* toucher is the documented change, not the
+  sweep. Same for clap, where the undocumented internal flatten (#3438)
+  shadows most API removals — kept deliberately as the honest
+  reorgs-kill-file-anchored-evidence case.
+- Controls: two survive `active` (clap LICENSE-APACHE, zod .editorconfig),
+  two survive `stale-candidate` with untouched spans in churned files (flask
+  blueprints.py lambda drifting 294→369, go-redis `const Nil = proto.Nil`) —
+  the re-verify signal demonstrated.
+- Driver bug found on first run: `bisect --json` reports a `git_commit` for
+  stale-candidates too (first scope toucher); SURVIVES now asserts
+  `status != invalidated` instead of no-culprit.
+
+**Latency targets (TODO item → [~]).** i7-1370P, 32 GB: hot 4k read 10.6 µs
+(target < 1 ms, 94× headroom), 4k write 5.8 µs, raw read 2.7 µs, semantic
+diff 200 fns 14.6 ms, line diff 59 µs. Open: no dedicated timeline-capture
+bench, no 100k-clone bench, no CI gating.
+
+Docs updated: demo README (+matrix table + three verdict-flavor notes), blog
+(+"five repos, four languages" section), Show HN/r-rust/X drafts, README.

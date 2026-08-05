@@ -151,6 +151,34 @@ Timing on that run: importing all 1,251 commits reachable from v0.7.0 took
 about 8 seconds; a full `belief bisect` re-scan over the 288-commit range
 takes about 0.5 seconds. No model, no network.
 
+## Scaling the validation: five repos, four languages
+
+One repo is an anecdote, so the same methodology — beliefs seeded true at
+an old release tag, evidence lines verified against the pinned tree,
+bisect across a major version, culprit asserted against a pinned expected
+commit — now runs against a matrix
+([`demos/belief-bisect/repos/`](https://github.com/mahabubul470/gpp/tree/main/demos/belief-bisect)):
+
+| repo | language | range | first-parent commits | result |
+|---|---|---|---|---|
+| axum | Rust | 0.6.0 → 0.7.0 | 288 | 4 invalidated on changelog commits, control survives |
+| flask | Python | 1.1.0 → 2.0.0 | 221 | 3 invalidated on changelog merges (#3554, #3562, #3828), control survives |
+| clap | Rust | 3.0.0 → 4.0.0 | 616 | ArgEnum rename caught (#3799); 2 beliefs honestly die at an *undocumented* internal reorg (#3438) |
+| zod | TypeScript | 3.0.0 → 4.0.1 | 1237 | nil-UUID fix caught mid-series (#483); 2 beliefs die exactly at the "Zod 4" merge |
+| go-redis | Go | 8.0.0 → 9.0.0 | 388 | 3 invalidated on v9-migration changes (#2171, #2244, v9 merge), control survives |
+
+All 21 expectations pass (16 matrix + 5 axum). The matrix surfaces two
+behaviors the axum run couldn't:
+
+- **Mid-series fixes are caught, not just major breaks** — zod's uuid
+  regex was quietly widened to admit the nil UUID two years before v4;
+  the bisect hands you that PR, not the version bump.
+- **Undocumented reorgs surface honestly** — clap moved `src/build/*` in
+  an internal flatten long before 4.0 removed the APIs. A file-anchored
+  belief dies at the move, because that *is* the moment its evidence
+  vanished — "grounds gone, not disproven," working as specified, and a
+  live demonstration of why evidence-span (and symbol) precision matters.
+
 ## Where this sits among the neighbors
 
 The space around this got busy in 2026, so it's worth being precise about

@@ -172,9 +172,14 @@ bidirectional platform sync, then live dependency intelligence.
   edge inference from the semantic diff.
 - [ ] **TUI mutation surface** (Phase 8 deviation). Promote/approve from
   the TUI (currently read-only; CLI is the only mutation path).
-- [ ] **Latency target verification** (Phase 8). Criterion baselines
-  exist; measure and tune against the stated targets (timeline < 5ms,
-  hot read < 1ms, 100k-object clone < 30s) and gate them in CI.
+- [~] **Latency target verification** (Phase 8). Measured 2026-08-06
+  (i7-1370P, 32 GB): `read_4k_blob_hot` **10.6 µs** vs the < 1 ms hot-read
+  target (94× headroom); `write_4k_blob` 5.8 µs; `read_raw_4k` 2.7 µs;
+  `semantic_200_fns_one_change` 14.6 ms; `line_unified_200_fns` 59 µs.
+  *Still open:* the < 5 ms timeline target has no dedicated bench (the
+  store write it sits on is µs-level, but the capture path — watcher →
+  debounce → SQLite — is unmeasured), no 100k-object clone bench exists,
+  and nothing gates these in CI.
 - [~] **Outreach pass** (2026-07-12). Automatable parts done — see the
   WORKLOG entry: URL/count/LICENSE fixes, demo recording, README + site
   redesign around the staleness wedge, 4-target release matrix, MCP.md,

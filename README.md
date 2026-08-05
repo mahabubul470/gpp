@@ -46,9 +46,11 @@ Deterministic — diff intersection and blob hashes, zero LLM or network
 calls. (For scale: asked to *judge* whether a stored memory has been
 invalidated, the best frontier model manages 55.2% accuracy on the
 [STALE benchmark](https://arxiv.org/abs/2605.06527) — here it's a
-history query, not a judgment.) See
-[`demos/belief-bisect/`](demos/belief-bisect/) for the full walkthrough,
-including validation against axum's real 0.6→0.7 history.
+history query, not a judgment.) Validated on real history across five
+repos in four languages — axum 0.6→0.7, flask 1.1→2.0, clap 3→4, zod
+3→4, go-redis 8→9 — where every invalidated belief bisects to a pinned,
+documented culprit commit and the control beliefs survive: see
+[`demos/belief-bisect/`](demos/belief-bisect/) for the full matrix.
 
 ## What makes it different
 

@@ -1,5 +1,6 @@
 # Rust build artifacts
 /target
+target/
 **/*.rs.bk
 
 # A gpp repo's own runtime state (don't commit it into the gpp source tree)

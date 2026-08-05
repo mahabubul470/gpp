@@ -101,6 +101,52 @@ Timing on this run: importing all 1,251 commits reachable from v0.7.0 took
 ~8 s; a full `belief bisect` re-scan over the 288-commit range takes ~0.5 s;
 the synthetic tier scans in milliseconds.
 
+## Tier 2 at scale — the validation matrix (run of 2026-08-06)
+
+`./run-repo-demo.sh repos/<name>.conf` replays the same methodology
+against four more real repos — one per supported tree-sitter grammar —
+each pinned at a major-version boundary. Every config seeds beliefs true
+at the old tag (evidence lines verified against the pinned tree), advances
+across the major version, bisects, and **asserts** the culprit is the
+expected pinned commit. All 16 expectations across the matrix pass:
+
+| repo (lang) | range (first-parent) | belief | verdict → culprit | documented where |
+|---|---|---|---|---|
+| flask (Python) | 1.1.0 → 2.0.0 (221) | supports Python 2 via `_compat` | invalidated → `cd8a3745` (#3554) | 2.0.0 changelog |
+| | | `flask.json` prefers simplejson | invalidated → `e69b49bd` (#3562) | 2.0.0 changelog |
+| | | `send_file` builds its response itself | invalidated → `bbb273bb` (#3828) | 2.0.0 changelog |
+| | | Blueprint defers via `record(lambda …)` | **survives** (span drifts 294→369) | control |
+| clap (Rust) | v3.0.0 → v4.0.0 (616) | derive enums implement `ArgEnum` | invalidated → `912a6290` (#3799) | rename commit; removal #4127 in 4.0.0 changelog |
+| | | builder entry point is `struct App` | invalidated → `c422ed24` (#3438) | *undocumented internal reorg* — see below |
+| | | `Arg::takes_value` opts into values | invalidated → `c422ed24` (#3438) | same reorg |
+| | | dual-licensed Apache-2.0 OR MIT | **survives** (active) | control |
+| zod (TypeScript) | v3.0.0 → v4.0.1 (1237) | `uuid()` rejects the nil UUID | invalidated → `b70e143d` (#483) | PR title: allow nil UUID |
+| | | `ZodError.errors` aliases `.issues` | invalidated → `85928549` (Zod 4, #4074) | v4 migration guide |
+| | | core is single-file `src/types.ts` | invalidated → `85928549` (Zod 4, #4074) | the Zod 4 merge itself |
+| | | editor conventions in `.editorconfig` | **survives** (active) | control |
+| go-redis (Go) | v8.0.0 → v9.0.0 (388) | conn lifetime option is `MaxConnAge` | invalidated → `3d1e2e5b` (#2171) | v9 migration: → `ConnMaxLifetime` |
+| | | hooks are `BeforeProcess`/`AfterProcess` | invalidated → `180f107a` (#2244) | v9 migration: new Hook design |
+| | | `Pipeline` has a `Close` method | invalidated → `0aa94538` (v9 merge) | v9: removed |
+| | | missing key returns `redis.Nil` | **survives** (stale-candidate) | control |
+
+Three verdict flavors the matrix demonstrates, beyond axum's:
+
+- **Surgical in-series fixes** are caught, not just major-version breaks:
+  zod's nil-UUID widening (#483) and flask's simplejson removal (#3562)
+  land mid-series with the exact PR attached.
+- **Mass invalidation at a rewrite is the correct answer**: both zod
+  beliefs anchored in `src/` die at the "Zod 4" merge — the commit where
+  every v3 file-anchored fact genuinely stopped being true.
+- **Undocumented reorgs surface honestly**: clap's internal flatten
+  (#3438) moved `src/build/*` long before 4.0 removed the APIs. The
+  engine reports the reorg — the true moment the evidence vanished. A
+  file-anchored belief cannot see through a file move; that is exactly
+  the "grounds gone, not disproven" semantics, and why span/symbol
+  precision matters.
+- The two controls that survive as `stale-candidate` (not `active`) show
+  the re-verify signal working: their evidence *files* churned, their
+  evidence *spans* never did.
+
 ## Contrast: flat memory file vs. witnessed belief
 
 The same fact, six months and one refactor later.

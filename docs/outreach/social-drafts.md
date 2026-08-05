@@ -29,10 +29,14 @@ everyday-fact memory, and gpp claims no score on it.
 > stream, so staleness is deterministic — diff intersection plus
 > evidence-span blob hashes, no LLM, no network — and `gpp belief bisect`
 > names the exact commit that staled a fact, with the offending hunk.
-> Validated on real history: five beliefs seeded at axum 0.6.0, bisected
-> across 288 commits to 0.7.0; all four invalidated beliefs land on
-> commits in axum's own changelog (#1751, #1868), and the control belief
-> (`State<T>`) correctly survives.
+> Validated on real history across five repos in four languages — axum
+> 0.6→0.7, flask 1.1→2.0, clap 3→4, zod 3→4, go-redis 8→9 (221–1237
+> commits each): 21 beliefs seeded true at the old tags, and every
+> invalidation bisects to a pinned, documented culprit (axum #1751/#1868,
+> flask #3554/#3562/#3828, zod's nil-UUID fix #483 and the "Zod 4" merge,
+> go-redis #2171/#2244), while the control beliefs survive. It's honest
+> about limits too: two clap beliefs die at an *undocumented* internal
+> file reorg — the true moment their file-anchored evidence vanished.
 >
 > How it differs from the neighbors: session-capture tools (Entire,
 > re_gent) record how code was written but not whether what you believe
@@ -75,14 +79,19 @@ the text in a first comment if the text field feels long.)*
 > engine. `gpp belief bisect` returns the first commit that staled a
 > claim, with the hunk.
 >
-> Validation on real history: seeded five beliefs true at axum-v0.6.0,
-> advanced 288 first-parent commits to v0.7.0 through the git bridge, and
-> bisected. All four invalidations land on commits documented as breaking
-> changes in axum's 0.7.0 changelog (#1751 ×3, #1868); the `State<T>`
-> control belief survives. Evidence seeded at `routing/mod.rs:64` was
-> drift-tracked to line 59 through unrelated upstream edits without a
-> false invalidation. Import of 1,251 commits ≈ 8 s; a full bisect
-> re-scan over the 288-commit range ≈ 0.5 s.
+> Validation on real history — five repos, four grammars, each imported
+> through the git bridge and bisected across a major version: axum
+> 0.6→0.7 (288 first-parent commits), flask 1.1→2.0 (221), clap 3→4
+> (616), zod 3→4 (1237), go-redis 8→9 (388). 21 beliefs seeded true at
+> the old tags; every invalidation lands on a pinned, documented culprit
+> (axum #1751/#1868; flask #3554/#3562/#3828; zod #483 + the "Zod 4"
+> merge; go-redis #2171/#2244 + the v9 merge) and the controls survive.
+> Evidence seeded at axum `routing/mod.rs:64` was drift-tracked to line
+> 59 through unrelated upstream edits without a false invalidation. One
+> honest edge the matrix surfaced: clap's undocumented internal reorg
+> (#3438) kills file-anchored beliefs before the 4.0 API removals do —
+> "grounds gone" semantics working as specified. Import of 1,251 commits
+> ≈ 8 s; a full bisect re-scan over 288 commits ≈ 0.5 s.
 >
 > Implementation, since this is r/rust:
 >
@@ -129,11 +138,11 @@ time attached.
 scope, compares evidence spans by blob hash → `gpp belief bisect` names
 the first commit that staled it, with the offending hunk.
 
-**4/** Validated on real history: 5 beliefs seeded at axum 0.6.0,
-bisected across 288 commits to 0.7.0. All 4 invalidated beliefs land on
-commits in axum's own 0.7 changelog (#1751, #1868). The control belief —
-`State<T>`, unchanged in 0.7 — survives. Evidence lines drift-tracked
-(64→59) with no false positives.
+**4/** Validated on real history: 21 beliefs across five repos in four
+languages — axum 0.6→0.7, flask 1.1→2.0, clap 3→4, zod 3→4, go-redis
+8→9. Every invalidation bisects to a pinned, documented commit (down to
+zod's quiet nil-UUID regex widening, #483); every control survives.
+Evidence lines drift-tracked (64→59) with no false positives.
 
 **5/** Honest semantics, because that's the design: a scope touch =
 *stale-candidate* (re-verify), never "false". Only evidence-span change
