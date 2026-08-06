@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Your coding agent's memory goes stale silently. Version control can catch it. — gpp</title>
+<meta name="description" content="Agent memory systems don't know when the code moved. Hosting the memory on the repo's own history makes staleness a deterministic query: gpp belief bisect names the commit that invalidated a fact — validated across axum, flask, clap, zod, and go-redis.">
+<link rel="canonical" href="https://mahabubul470.github.io/gpp/blog/belief-bisect/">
+
+<meta property="og:type" content="article">
+<meta property="og:title" content="Your coding agent's memory goes stale silently. Version control can catch it.">
+<meta property="og:description" content="Staleness as a deterministic history query — no LLM, no network. Validated on real history: 21 beliefs across five repos in four languages, every invalidation bisecting to a pinned, documented commit.">
+<meta property="og:url" content="https://mahabubul470.github.io/gpp/blog/belief-bisect/">
+<meta property="og:image" content="https://mahabubul470.github.io/gpp/assets/og.png">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0b0e14;
+    --bg-raise: #10141d;
+    --bg-inset: #0d1117;
+    --border: #1f2733;
+    --border-strong: #2c3644;
+    --text: #e6e9ef;
+    --text-2: #9aa4b2;
+    --text-3: #5c6773;
+    --accent: #4ade80;
+    --accent-dim: #22824a;
+    --warn: #fbbf24;
+    --bad: #f87171;
+    --link: #7dd3fc;
+    --mono: 'JetBrains Mono', ui-monospace, monospace;
+    --sans: 'Inter', -apple-system, system-ui, sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: var(--sans); background: var(--bg); color: var(--text);
+    line-height: 1.7; -webkit-font-smoothing: antialiased; font-size: 16.5px;
+  }
+  a { color: var(--link); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code { font-family: var(--mono); font-size: .88em; background: var(--bg-inset);
+         border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; }
+  pre { font-family: var(--mono); font-size: 13px; line-height: 1.7;
+        background: var(--bg-inset); border: 1px solid var(--border);
+        border-radius: 8px; padding: 16px 18px; overflow-x: auto; margin: 22px 0;
+        color: var(--text-2); }
+  pre code { background: none; border: none; padding: 0; font-size: inherit; }
+  pre .red { color: var(--bad); } pre .grn { color: var(--accent); }
+  pre .dim { color: var(--text-3); } pre .wht { color: var(--text); }
+
+  header {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(11, 14, 20, 0.85); backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+  .nav { max-width: 760px; margin: 0 auto; padding: 0 24px; display: flex;
+         align-items: center; justify-content: space-between; height: 60px; }
+  .logo { font-family: var(--mono); font-weight: 600; font-size: 17px; color: var(--text); }
+  .logo b { color: var(--accent); font-weight: 600; }
+  .logo:hover { text-decoration: none; }
+  .nav-links { display: flex; gap: 24px; }
+  .nav-links a { font-size: 14px; color: var(--text-2); }
+  .nav-links a:hover { color: var(--text); text-decoration: none; }
+
+  article { max-width: 760px; margin: 0 auto; padding: 64px 24px 96px; }
+  .meta { font-family: var(--mono); font-size: 13px; color: var(--text-3); margin-bottom: 18px; }
+  h1 { font-size: clamp(28px, 4vw, 38px); font-weight: 700; letter-spacing: -0.02em;
+       line-height: 1.2; margin-bottom: 26px; }
+  h2 { font-size: 24px; font-weight: 700; letter-spacing: -0.015em; margin: 44px 0 14px; }
+  p { margin: 14px 0; color: var(--text-2); }
+  p strong, li strong { color: var(--text); }
+  article > p:first-of-type { font-size: 18px; }
+  ul { margin: 14px 0 14px 22px; color: var(--text-2); }
+  li { margin: 8px 0; }
+  li i, p i { color: var(--text); font-style: italic; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 22px 0; display: block; overflow-x: auto; }
+  th { text-align: left; font-family: var(--mono); font-size: 12px; color: var(--text-3);
+       text-transform: uppercase; letter-spacing: .05em; padding: 8px 12px;
+       border-bottom: 1px solid var(--border-strong); white-space: nowrap; }
+  td { padding: 9px 12px; border-bottom: 1px solid var(--border); color: var(--text-2); vertical-align: top; }
+  td code { white-space: nowrap; }
+  .v-inv { color: var(--bad); font-family: var(--mono); font-size: 13px; white-space: nowrap; }
+  .v-ok { color: var(--accent); font-family: var(--mono); font-size: 13px; white-space: nowrap; }
+  .note { border-left: 3px solid var(--accent-dim); background: var(--bg-raise);
+          border-radius: 0 8px 8px 0; padding: 14px 18px; margin: 22px 0; }
+  .note p { margin: 6px 0; font-size: 15px; }
+  footer { border-top: 1px solid var(--border); }
+  .foot { max-width: 760px; margin: 0 auto; padding: 28px 24px; font-size: 14px; color: var(--text-3); }
+</style>
+</head>
+<body>
+
+<header>
+  <nav class="nav">
+    <a class="logo" href="../../"><b>gpp</b> · git++</a>
+    <div class="nav-links">
+      <a href="../../#staleness">Validation</a>
+      <a href="../../docs/">Docs</a>
+      <a href="https://github.com/mahabubul470/gpp">GitHub</a>
+    </div>
+  </nav>
+</header>
+
+<article>
+<div class="meta">2026-08-07 · Mahabubul Hasan · <a href="https://github.com/mahabubul470/gpp">mahabubul470/gpp</a></div>
+<h1>Your coding agent's memory goes stale silently. Version control can catch it.</h1>
+
+<p>Every serious agent setup now carries a memory: a <code>CLAUDE.md</code>, a memory
+bank, a knowledge file, or one of the newer git-like memory stores (Memoria,
+DiffMem, Git Context Controller). They all share a failure mode: the memory
+doesn't know when the code moved.</p>
+
+<pre><span class="dim">## Auth notes</span>
+<span class="wht">- token expiry is 24h</span>            <span class="red">&lt;- silently false since commit fhcpef7c</span></pre>
+
+<p>That line gets served verbatim into your agent's context, every session,
+months after someone changed the constant. Nothing flags it. The agent
+confidently builds on a fact that stopped being true in June.</p>
+
+<p>This failure mode now has measurements attached. The
+<a href="https://arxiv.org/abs/2605.06527">STALE benchmark</a> (May 2026) tests
+exactly this question — can an agent tell that a stored belief has been
+invalidated by later evidence? — and the best frontier model evaluated managed
+<strong>55.2% overall accuracy</strong>, with specialized memory frameworks doing no
+better. A related result on
+<a href="https://arxiv.org/abs/2606.26511">temporal validity in retrieval memory</a>
+reports RAG pipelines serving stale facts 15–40% of the time when forced to
+commit to an answer. Both study everyday-fact memory, not code — but code makes
+the problem <i>harder</i>, not easier: the thing invalidating your memory is a
+commit another agent pushed an hour ago, at machine speed. Asking a model to
+notice is the wrong tool. The invalidation event is already sitting in version
+control.</p>
+
+<h2>The parallel-store tax</h2>
+
+<p>The structural problem is that these systems keep memory <i>beside</i> the
+repository. Versioning the memory itself — which the git-like memory stores do
+well — tells you how your <i>notes</i> evolved. It cannot tell you that the
+<i>code</i> under a note changed, because the code's history lives in a different
+store. So drift between memory and code has to be <strong>detected</strong> after the
+fact: re-read the files, re-embed, or ask a model "is this still true?" That's
+periodic, probabilistic, and costs tokens — and between detection passes, the
+memory is silently wrong.</p>
+
+<h2>A VCS doesn't detect drift. It witnesses it.</h2>
+
+<p>Version control already has the thing a memory system is missing: a
+structured stream of change events. Every commit arrives with an author, a
+timestamp, a diff, and provenance attached. If your knowledge store lives on
+the repository's <i>own</i> event stream, then "did anything happen to the code
+this note is about?" stops being a semantic question and becomes a history
+query:</p>
+
+<ul>
+<li>Anchor each remembered fact (a <strong>belief</strong>) at a changeset, with a scope
+(paths, or tree-sitter-resolved symbols) and optional <strong>evidence spans</strong> —
+the exact lines the claim rests on.</li>
+<li>For every commit after the anchor, intersect the commit's diff with the
+belief's scope, and compare evidence-span content by blob hash.</li>
+</ul>
+
+<p>That's it. Deterministic, offline, zero LLM calls. And it's precise about
+what it knows — this distinction is the whole design:</p>
+
+<table>
+<tr><th>status</th><th>meaning</th></tr>
+<tr><td><code>active</code></td><td>no commit since the anchor intersects the belief's scope</td></tr>
+<tr><td><code>stale-candidate</code></td><td>a commit touched the scope, but every evidence span is unchanged — re-verify</td></tr>
+<tr><td><code>invalidated</code></td><td>an evidence span's content changed or its file was deleted — the belief's grounds are gone</td></tr>
+<tr><td><code>reaffirmed</code></td><td>a human re-checked the claim and re-anchored it</td></tr>
+</table>
+
+<p>Note what the engine does <strong>not</strong> claim: a <code>stale-candidate</code> is not
+"false" — it means history touched the neighborhood and a re-check is
+warranted. Even <code>invalidated</code> means the evidence is gone, not that the claim
+is disproven. Judging whether new code actually contradicts a claim needs
+semantics, and this engine deliberately doesn't do semantics.</p>
+
+<p>This is the wedge <a href="https://github.com/mahabubul470/gpp">gpp</a> is built
+around. Its knowledge graph (Graphex) sits on the same changeset stream as the
+code, so staleness is a query, not a scan:</p>
+
+<pre>gpp belief add --claim "token expiry is 24h" --evidence auth/token.rs:7-7
+gpp belief stale        <span class="dim"># every belief whose scope history has touched</span>
+gpp belief bisect &lt;id&gt;  <span class="dim"># the first commit that staled it + offending hunk</span>
+gpp belief at &lt;cs&gt;      <span class="dim"># the belief set as it stood at any changeset</span>
+gpp belief log &lt;id&gt;     <span class="dim"># full append-only status history</span></pre>
+
+<p>And the flat-file example above, witnessed instead of served verbatim:</p>
+
+<pre><span class="red">invalidated</span>  ntqd225c  <span class="wht">"token expiry is 24h"</span>
+    2026-06-03  cs:fhcpef7c  invalidated  — evidence auth/token.rs:7-7 changed
+
+<span class="grn">$</span> <span class="wht">gpp belief bisect ntqd225c</span>
+<span class="red">INVALIDATED</span>  cs:fhcpef7c  2026-06-03
+  <span class="dim">"raise token expiry to 7 days"</span>
+  cause: evidence auth/token.rs:7-7 changed
+ <span class="red">-     7 | pub const EXPIRY_HOURS: u64 = 24;</span>
+ <span class="grn">+     7 | pub const EXPIRY_HOURS: u64 = 168;</span></pre>
+
+<p>The fact comes with its killer attached: which commit, when, and the hunk.</p>
+
+<h2>Validation: axum 0.6 → 0.7, 288 commits, changelog cross-check</h2>
+
+<p>Synthetic demos prove plumbing; real history proves the idea. The
+<a href="https://github.com/mahabubul470/gpp/tree/main/demos/belief-bisect">demo
+script</a> clones <a href="https://github.com/tokio-rs/axum">axum</a>, imports its
+history through gpp's git bridge pinned at <code>axum-v0.6.0</code>
+(<code>1b6780cf</code>), seeds five beliefs that were true of that commit — with
+evidence spans in the real source — then advances to <code>axum-v0.7.0</code>
+(<code>b7d14d36</code>, 288 first-parent commits later), re-imports, and bisects. The
+only network use is the initial clone.</p>
+
+<p>Results, cross-checked mechanically against axum's own
+<code>CHANGELOG.md</code> for 0.7.0:</p>
+
+<table>
+<tr><th>belief (true at v0.6.0)</th><th>verdict</th><th>culprit commit</th><th>in changelog?</th></tr>
+<tr><td><code>Router</code> is generic over the request body type (<code>Router&lt;S, B&gt;</code>)</td>
+    <td class="v-inv">invalidated</td>
+    <td><code>4e4c2917</code> — Remove <code>B</code> type param (<a href="https://github.com/tokio-rs/axum/pull/1751">#1751</a>)</td><td>yes</td></tr>
+<tr><td>axum re-exports <code>hyper::Server</code>; apps start with <code>axum::Server::bind</code></td>
+    <td class="v-inv">invalidated</td>
+    <td><code>c9796725</code> — Add <code>serve</code>, remove <code>Server</code> re-export (<a href="https://github.com/tokio-rs/axum/pull/1868">#1868</a>)</td><td>yes</td></tr>
+<tr><td><code>axum::body::Body</code> is hyper's <code>Body</code> re-exported</td>
+    <td class="v-inv">invalidated</td>
+    <td><code>4e4c2917</code> — Remove <code>B</code> type param (<a href="https://github.com/tokio-rs/axum/pull/1751">#1751</a>)</td><td>yes</td></tr>
+<tr><td>request bodies can be streamed with <code>extract::BodyStream</code></td>
+    <td class="v-inv">invalidated</td>
+    <td><code>4e4c2917</code> — Remove <code>B</code> type param (<a href="https://github.com/tokio-rs/axum/pull/1751">#1751</a>)</td><td>yes</td></tr>
+<tr><td>shared state is extracted with <code>State&lt;T&gt;</code></td>
+    <td class="v-ok">holds</td>
+    <td>— (unchanged in 0.7; survives all 288 commits)</td><td>—</td></tr>
+</table>
+
+<p>Two details in the output are worth a close look:</p>
+
+<ul>
+<li><strong>Evidence spans drift.</strong> The <code>Router&lt;S, B&gt;</code> evidence was seeded at
+<code>routing/mod.rs:64</code>; by the culprit commit the engine reports it at line
+59. Five lines of unrelated upstream edits moved the span, and the drift
+tracker followed it without a false invalidation. An edit <i>above</i> a span
+moves it; only an edit <i>inside</i> it invalidates.</li>
+<li><strong>Span precision controls verdict precision.</strong> Pinning the evidence to
+the signature line only (<code>64-64</code>) means
+<a href="https://github.com/tokio-rs/axum/pull/1806">#1806</a>, which rewrote the
+struct's <i>private fields</i>, does not fire the invalidation. The verdict lands
+exactly on the commit that removed the <code>B</code> parameter, and the nine
+scope-level touches before it are reported as the stale candidates they
+are.</li>
+</ul>
+
+<p>Timing: importing all 1,251 commits reachable from v0.7.0 took about 8
+seconds; a full <code>belief bisect</code> re-scan over the 288-commit range takes
+about 0.5 seconds. No model, no network.</p>
+
+<h2>Scaling the validation: five repos, four languages</h2>
+
+<p>One repo is an anecdote, so the same methodology — beliefs seeded true at an
+old release tag, evidence lines verified against the pinned tree, bisect across
+a major version, culprit asserted against a pinned expected commit — now runs
+against a matrix:</p>
+
+<table>
+<tr><th>repo</th><th>language</th><th>range</th><th>commits</th><th>result</th></tr>
+<tr><td>axum</td><td>Rust</td><td>0.6.0 → 0.7.0</td><td>288</td>
+    <td>4 invalidated on changelog commits, control survives</td></tr>
+<tr><td>flask</td><td>Python</td><td>1.1.0 → 2.0.0</td><td>221</td>
+    <td>3 invalidated on changelog merges (#3554, #3562, #3828), control survives</td></tr>
+<tr><td>clap</td><td>Rust</td><td>3.0.0 → 4.0.0</td><td>616</td>
+    <td>ArgEnum rename caught (#3799); 2 beliefs honestly die at an <i>undocumented</i> internal reorg (#3438)</td></tr>
+<tr><td>zod</td><td>TypeScript</td><td>3.0.0 → 4.0.1</td><td>1237</td>
+    <td>nil-UUID fix caught mid-series (#483); 2 beliefs die exactly at the "Zod 4" merge</td></tr>
+<tr><td>go-redis</td><td>Go</td><td>8.0.0 → 9.0.0</td><td>388</td>
+    <td>3 invalidated on v9-migration changes (#2171, #2244, v9 merge), control survives</td></tr>
+</table>
+
+<p>All 21 expectations pass (16 matrix + 5 axum). The matrix surfaces two
+behaviors the axum run couldn't:</p>
+
+<ul>
+<li><strong>Mid-series fixes are caught, not just major breaks</strong> — zod's uuid
+regex was quietly widened to admit the nil UUID two years before v4; the
+bisect hands you that PR, not the version bump.</li>
+<li><strong>Undocumented reorgs surface honestly</strong> — clap moved
+<code>src/build/*</code> in an internal flatten long before 4.0 removed the APIs. A
+file-anchored belief dies at the move, because that <i>is</i> the moment its
+evidence vanished — "grounds gone, not disproven," working as specified, and a
+live demonstration of why evidence-span (and symbol) precision matters.</li>
+</ul>
+
+<h2>Where this sits among the neighbors</h2>
+
+<p>The space around this got busy in 2026, so it's worth being precise about
+what each neighbor does and doesn't do:</p>
+
+<ul>
+<li><strong>Session-capture tools</strong> (<a href="https://entire.io">Entire</a>, re_gent)
+record <i>how code was written</i> — agent prompts, checkpoints, provenance, down
+to <code>entire blame</code> tracing a line back to its session. That's the
+provenance half of the problem (gpp's timeline layer does this too). None of
+them track whether <i>what you believe about the code</i> is still true.</li>
+<li><strong>Codebase knowledge graphs</strong> (<a href="https://www.cognee.ai">Cognee</a>,
+Potpie, GraphRAG-style code memory) rebuild a graph from the code,
+incrementally, keyed on file timestamps. On re-ingestion they can <i>prune</i> a
+stale node — but they can't name the commit that staled it, say when it
+happened, or show you what was believed before. The history isn't part of the
+store.</li>
+<li><strong>Git-like memory stores</strong> (Memoria, DiffMem, Git Context Controller)
+version the <i>memory</i> — you can diff your notes. But the notes' history and
+the code's history are separate stores, so code-drift still has to be detected
+semantically, after the fact.</li>
+<li><strong>Agent-native VCSes</strong>
+(<a href="https://github.com/atomicdotdev/atomic">Atomic</a>,
+<a href="https://news.ycombinator.com/item?id=48631726">Oak</a>) rethink the version
+control substrate — patch theory, virtual mounts, token efficiency. Closest in
+spirit to gpp's platform, but neither hosts claims about the code, so neither
+can rule on their staleness.</li>
+</ul>
+
+<p>The missing combination is the one this post is about: knowledge anchored
+<i>on</i> the code's own history, so invalidation is witnessed by the same event
+stream that caused it — deterministically, with the culprit commit
+attached.</p>
+
+<h2>What this doesn't do (yet)</h2>
+
+<div class="note">
+<p><strong>StaleCandidate ≠ false.</strong> Scope intersection is a re-verify signal,
+not a verdict. Only evidence-span content change or file deletion yields
+<code>invalidated</code> — and even that means "grounds gone", not "disproven".</p>
+<p><strong>Beliefs are hand-seeded.</strong> You (or your agent, via the graph-update
+proposal flow) write the claims. There is no automatic belief extraction from
+code or conversation.</p>
+<p><strong>Symbol coverage is top-level declarations</strong> (via tree-sitter, for
+Rust/Python/TypeScript/Go). Nested items resolve to their enclosing
+declaration.</p>
+<p><strong>No semantic judgment.</strong> Deciding whether the new code actually
+contradicts the claim is a <code>SemanticInvalidator</code> trait stub, reserved for
+a v2 where an LLM can be brought in <i>on top of</i> the deterministic layer —
+triaging the candidates history has already found, instead of re-reading the
+repo.</p>
+</div>
+
+<p>Underneath this sits a full platform — continuous timeline capture, agent
+trust scoring, compliance policies, CRDT sync, cost attribution — but those
+are other posts. The wedge is this one: <strong>your agent's memory should be a
+view over history, not a file beside it.</strong></p>
+
+<h2>Try it</h2>
+
+<pre>cargo install gpp-cli
+
+gpp init --graphex .
+gpp belief add --claim "token expiry is 24h" --evidence auth/token.rs:7-7
+<span class="dim"># ...history happens...</span>
+gpp belief stale
+gpp belief bisect "token expiry is 24h"</pre>
+
+<p>Connect an agent over MCP — Claude Code picks this up from a
+<code>.mcp.json</code> at the repo root (gpp is also in the
+<a href="https://registry.modelcontextprotocol.io/">official MCP Registry</a> as
+<code>io.github.mahabubul470/gpp</code>):</p>
+
+<pre>{
+  "mcpServers": {
+    "gpp": { "command": "gpp", "args": ["mcp-server", "--stdio"] }
+  }
+}</pre>
+
+<p>The agent gets <code>graphex_query</code> (project context where stale beliefs
+are flagged in-line), <code>propose_changeset</code>, and <code>report_cost</code> — see
+<a href="https://github.com/mahabubul470/gpp/blob/main/docs/MCP.md">docs/MCP.md</a>.</p>
+
+<p>The full validation matrix, per-repo configs, the synthetic CI test, and
+recorded walkthroughs live in
+<a href="https://github.com/mahabubul470/gpp/tree/main/demos/belief-bisect">demos/belief-bisect</a>.
+Run the real-history validation yourself:</p>
+
+<pre>./demos/belief-bisect/run-axum-demo.sh
+./demos/belief-bisect/run-repo-demo.sh demos/belief-bisect/repos/flask.conf</pre>
+
+</article>
+
+<footer>
+  <div class="foot">
+    <a href="../../">gpp</a> — an AI-native version control system in Rust, MIT-licensed.
+    Works alongside git. <a href="https://github.com/mahabubul470/gpp">Star it on GitHub</a>.
+  </div>
+</footer>
+
+</body>
+</html>

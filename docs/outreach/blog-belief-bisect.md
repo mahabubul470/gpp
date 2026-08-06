@@ -1,8 +1,12 @@
 # Your coding agent's memory goes stale silently. Version control can catch it.
 
-*Draft — for publication. Everything below is runnable against the current
-build of [gpp](https://github.com/mahabubul470/gpp); the axum numbers come
-from a recorded run of `demos/belief-bisect/run-axum-demo.sh`.*
+*Published at
+<https://mahabubul470.github.io/gpp/blog/belief-bisect/> (canonical —
+point cross-posts' canonical URL there; source of truth for edits is
+`site/blog/belief-bisect/index.html`, this markdown is the draft it was
+built from). Everything below is runnable against the current build of
+[gpp](https://github.com/mahabubul470/gpp); the axum numbers come from a
+recorded run of `demos/belief-bisect/run-axum-demo.sh`.*
 
 Every serious agent setup now carries a memory: a `CLAUDE.md`, a memory
 bank, a knowledge file, or one of the newer git-like memory stores

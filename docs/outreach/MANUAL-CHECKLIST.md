@@ -61,7 +61,11 @@ activates once the token exists.
 
 ## 5. Publishing the writing
 
-- [ ] Blog post: `docs/outreach/blog-belief-bisect.md` — publish on the
+- [x] Blog post hosted 2026-08-07 on the Pages site:
+      <https://mahabubul470.github.io/gpp/blog/belief-bisect/> (canonical;
+      linked from the site nav and the Show HN draft). Optional: cross-post
+      to Medium/dev.to with the canonical URL set to that page.
+- [ ] ~~Blog post~~ (superseded): `docs/outreach/blog-belief-bisect.md` — publish on the
       Pages site (or leave on GitHub and link the raw doc). If you give
       it a nicer URL, update the link inside
       `docs/outreach/social-drafts.md`.

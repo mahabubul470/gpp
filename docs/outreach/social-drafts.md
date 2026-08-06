@@ -47,7 +47,7 @@ everyday-fact memory, and gpp claims no score on it.
 > so the invalidation event and the belief live in the same store.
 >
 > Repo: https://github.com/mahabubul470/gpp
-> Write-up: https://github.com/mahabubul470/gpp/blob/main/docs/outreach/blog-belief-bisect.md
+> Write-up: https://mahabubul470.github.io/gpp/blog/belief-bisect/
 
 *(HN etiquette note for the poster: put the repo as the submission URL and
 the text in a first comment if the text field feels long.)*
