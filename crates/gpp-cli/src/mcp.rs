@@ -50,7 +50,10 @@ with the repository as a first-class agent:
    `graphex_query` shows it with a freshness envelope (anchor, commits since, \
    and the changeset that staled it) so agents discount it instead of \
    trusting it. Pin evidence to the precise lines that justify the claim, not \
-   whole functions — span precision is verdict precision.
+   whole functions — span precision is verdict precision. If a belief shows \
+   as a stale candidate and you have re-checked the code and it still holds, \
+   `reaffirm_belief` re-anchors it at the current changeset. An invalidated \
+   belief cannot be reaffirmed — propose a fresh one with current evidence.
 
 Changesets you propose are reviewed by humans before they merge. Be honest in \
 messages and intents; your trust score depends on it.";
@@ -183,6 +186,17 @@ fn tool_specs() -> Vec<Value> {
                    "symbols":{"type":"array","items":{"type":"string"}},
                    "tier":{"type":"string"}}),
             json!(["claim"]),
+        ),
+        s(
+            "reaffirm_belief",
+            "Re-anchor a belief at the current changeset after you have \
+             re-verified it against the code (e.g. a stale-candidate whose claim \
+             still holds). Optional new evidence spans replace the old ones. \
+             Not allowed for invalidated beliefs — their grounds are gone; \
+             propose a new belief with current evidence instead.",
+            json!({"belief":{"type":"string","description":"belief id or exact claim"},
+                   "evidence":{"type":"array","items":{"type":"string"}}}),
+            json!(["belief"]),
         ),
         s(
             "report_cost",
@@ -365,6 +379,28 @@ fn handle_tool_call(
                     out.push_str(&format!("\nwarning: {w}"));
                 }
                 Ok(text_result(out))
+            }
+            "reaffirm_belief" => {
+                let spec = a
+                    .get("belief")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| anyhow::anyhow!("belief is required"))?;
+                let evidence: Vec<String> = a
+                    .get("evidence")
+                    .and_then(|v| v.as_array())
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|x| x.as_str().map(str::to_string))
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                let sess = AgentSession::open(&repo.root, AGENT_ID, "MCP Client", max_tier)?;
+                let (id, tip) = sess.reaffirm_belief(spec, &evidence)?;
+                Ok(text_result(format!(
+                    "reaffirmed belief {} — re-anchored at cs:{}",
+                    id.short(),
+                    tip.short()
+                )))
             }
             other => Ok(err_result(format!("unknown tool: {other}"))),
         }

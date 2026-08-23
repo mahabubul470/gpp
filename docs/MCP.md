@@ -33,10 +33,11 @@ These are the tools the current build serves
 | `propose_changeset` | `message` (required), `intent` (feature/fix/refactor/test/docs/chore) | Promote the pending timeline entries into a changeset. Returns the changeset id. Agent proposals land for human review like any other agent's work. |
 | `propose_graph_update` | `node_type`, `name` (required), `description`, `tier` | Suggest a new knowledge-graph node. It lands in the `Proposed` state for a human to approve — never applied silently. |
 | `propose_belief` | `claim` (required), `evidence` (`["path:start-end", …]`), `paths`, `symbols` (`["path:Name", …]`), `tier` | Record an **evidence-anchored belief** about the code — an agent-written note that history polices. Evidence spans are verified against the current changeset (same bar as `gpp belief add`); the belief is anchored there and lands `Proposed` for human approval (`gpp graphex pending` / `accept`). From the moment it exists, `gpp belief stale` / `bisect` track it: a later commit that changes an evidence span invalidates it and names the culprit. At least one of `evidence` / `paths` / `symbols` is required. |
+| `reaffirm_belief` | `belief` (id or exact claim, required), `evidence` (optional new spans) | After re-verifying a `stale-candidate` against the code, re-anchor it at the current changeset (optionally with new evidence). **Refused for invalidated beliefs** — their grounds are gone; propose a fresh belief with current evidence and go through approval again. Audited under the agent's identity. |
 | `report_cost` | `changeset` (required), `model`, `input_tokens`, `output_tokens`, `cached_tokens`, `cost_microdollars` | Attribute token/compute usage to a changeset. Reports accumulate; costs are integer micro-dollars (1 = $0.000001). |
 
 `docs/GRAPHEX_PROTOCOL.md` specifies a larger planned tool surface
-(timeline, exploration branches, trust, policy, review). The eight above
+(timeline, exploration branches, trust, policy, review). The nine above
 are what `tools/list` returns today — anything else is spec, not build.
 
 The server's `initialize` response includes workflow instructions, so a
@@ -134,10 +135,12 @@ without an `id`) are accepted and ignored, and `ping` is supported.
    have to rediscover — and that a commit could silently break — goes
    through `propose_belief` with the exact lines it rests on. Once a
    human accepts it, it shows up in every later `graphex_query` with its
-   freshness envelope, and `gpp belief stale` emits a
-   `belief.stale_candidate` / `belief.invalidated` event to the approver
-   and maintainers the first time history moves against it (see
-   `gpp inbox` / `gpp notify`).
+   freshness envelope. Every `promote` (CLI or `propose_changeset`) scans
+   the beliefs and emits a `belief.stale_candidate` / `belief.invalidated`
+   event to the approver and maintainers the first time history moves
+   against one — no hook needed (see `gpp inbox` / `gpp notify`). A
+   stale-candidate the agent has re-checked can be `reaffirm_belief`ed;
+   an invalidated one cannot.
 
 For the staleness machinery behind step 1 — beliefs, evidence spans, and
 `gpp belief bisect` — see [`demos/belief-bisect/`](../demos/belief-bisect/)

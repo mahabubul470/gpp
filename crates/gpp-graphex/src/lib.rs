@@ -23,7 +23,7 @@ mod store;
 pub use belief::{
     BeliefData, BeliefStatus, Cause, Evidence, Scope, SemanticInvalidator, StatusChange, SymbolRef,
     add_belief, add_belief_proposed, list_beliefs, parse_evidence_spec, parse_symbol_spec,
-    resolve_belief, save_belief, verify_evidence, verify_symbols,
+    reaffirm_belief, resolve_belief, save_belief, verify_evidence, verify_symbols,
 };
 pub use error::{Error, Result};
 pub use infer::{Suggestion, module_root, module_roots, suggest_modules};

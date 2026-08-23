@@ -1,6 +1,6 @@
 # TODO — gpp (git++) Next Work
 
-Status snapshot: all 9 phases (0–8) implemented; 179 workspace tests pass;
+Status snapshot: all 9 phases (0–8) implemented; 180 workspace tests pass;
 clippy/fmt clean; line coverage 65.70% baseline (counts verified
 2026-07-12). P0.1–P0.3
 are now done — the remaining P0 work is the test-depth/integration pass
@@ -169,10 +169,9 @@ bidirectional platform sync, then live dependency intelligence.
   (script ready; tool not installed).
 - [x] **Agent-written beliefs over MCP** (`propose_belief`), projection
   freshness envelopes, and `belief.*` notify events. Done 2026-08-23
-  (0.2.0) — see the WORKLOG entry. *Open follow-ups:* `belief stale`
-  scan as an automatic step of `promote` (today it runs from the
-  post-commit hook / on demand); a `belief reaffirm` MCP tool so an
-  agent can re-anchor after re-verifying.
+  (0.2.0) — see the WORKLOG entry. Follow-ups landed 2026-08-23 (0.2.1):
+  the scan runs inside `promote` (CLI + SDK) so events need no hook, and
+  `reaffirm_belief` over MCP (refused for invalidated beliefs).
 - [ ] **Semantic-diff-driven Graphex inference** (Phase 3 deviation).
   Auto-inference currently keys off changed file *paths*; drive richer
   edge inference from the semantic diff.

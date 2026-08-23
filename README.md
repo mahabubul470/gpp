@@ -103,7 +103,7 @@ documented deviations, [`docs/TODO.md`](docs/TODO.md) for the prioritized
 backlog, and [`docs/WORKLOG.md`](docs/WORKLOG.md) for the running
 engineering log.
 
-Verified 2026-08-23: **179 workspace tests pass**, `cargo clippy` and
+Verified 2026-08-23: **180 workspace tests pass**, `cargo clippy` and
 `cargo fmt` clean, full workspace builds. No stub crates remain — every
 crate has a working implementation. Coverage is measured in CI
 (`cargo llvm-cov`; 65.7% line at baseline, being raised).

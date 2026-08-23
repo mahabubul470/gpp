@@ -455,6 +455,11 @@ pub fn promote(args: &PromoteArgs, repo_override: Option<&Path>) -> Result<()> {
         author.author_type == gpp_history::AuthorType::Agent,
     );
 
+    // Beliefs: let the new changeset rule on every recorded belief and
+    // notify on transitions. Best-effort: no Graphex, no beliefs, or a scan
+    // error never affects the promote itself.
+    let transitions = gpp_sdk::scan_beliefs(&repo.gpp_dir(), outcome.changeset).unwrap_or_default();
+
     println!(
         "Promoted {} timeline entr{} → cs:{} on {}",
         outcome.entries_promoted,
@@ -466,6 +471,17 @@ pub fn promote(args: &PromoteArgs, repo_override: Option<&Path>) -> Result<()> {
         short(&outcome.changeset),
         outcome.branch
     );
+    for t in &transitions {
+        println!(
+            "  belief {:<16} {}  \"{}\"",
+            t.to.as_str(),
+            t.id.short(),
+            t.claim
+        );
+    }
+    if !transitions.is_empty() {
+        println!("  (gpp belief stale / bisect <id> for the culprit and hunk)");
+    }
     Ok(())
 }
 

@@ -11,7 +11,6 @@ use anyhow::{Context, Result, anyhow, bail};
 use gpp_core::{Hash, flatten_tree};
 use gpp_graphex::{AccessTier, BeliefStatus, ScanHit, Scope};
 use gpp_history::{Changeset, RefStore};
-use gpp_notify::{EventType, Notifier};
 
 use crate::cli::{BeliefAction, BeliefArgs};
 use crate::phase3::{config_author, default_tier, open_graph};
@@ -44,21 +43,6 @@ fn head_tip(repo: &Repo) -> Result<Hash> {
     RefStore::open(&repo.gpp_dir())
         .head_tip()?
         .ok_or_else(|| anyhow!("no changesets yet — `gpp promote` first"))
-}
-
-/// Who hears about a belief transition: RBAC maintainers/owners (the
-/// people who approve knowledge), with the belief's author added per event.
-fn belief_recipients(repo: &Repo) -> Vec<String> {
-    use gpp_rbac::{Role, RoleStore};
-    RoleStore::open(&repo.gpp_dir())
-        .and_then(|rs| rs.list())
-        .map(|as_| {
-            as_.into_iter()
-                .filter(|a| matches!(a.role, Role::Maintainer | Role::Owner))
-                .map(|a| a.identity)
-                .collect()
-        })
-        .unwrap_or_default()
 }
 
 fn ymd(us: i64) -> String {
@@ -267,62 +251,13 @@ pub fn belief(args: &BeliefArgs, repo_override: Option<&Path>, json: bool) -> Re
                 None => None,
             };
             let mut report = Vec::new();
-            let notifier = Notifier::open(&repo.gpp_dir()).ok();
-            let recipients = belief_recipients(&repo);
+            // Record + notify transitions (shared with `promote` and the
+            // agent SDK), then report everything currently stale.
+            gpp_sdk::scan_beliefs(&repo.gpp_dir(), tip)?;
             for (bid, node) in gpp_graphex::list_beliefs(&gs)? {
-                let before = node.belief.as_ref().map(|b| b.status);
                 match gpp_graphex::scan_and_record(&gs, &bid, tip) {
                     Ok((node, hits)) => {
                         let data = node.belief.expect("belief node scanned");
-                        // Event-driven invalidation: a status *transition*
-                        // observed by this scan fans out to the belief's
-                        // author and the maintainers — once, not on every
-                        // rescan.
-                        if Some(data.status) != before
-                            && let Some(n) = &notifier
-                        {
-                            let et = match data.status {
-                                BeliefStatus::Invalidated => Some(EventType::BeliefInvalidated),
-                                BeliefStatus::StaleCandidate => {
-                                    Some(EventType::BeliefStaleCandidate)
-                                }
-                                _ => None,
-                            };
-                            if let Some(et) = et {
-                                let culprit = hits
-                                    .iter()
-                                    .find(|h| h.verdict == data.status)
-                                    .map(|h| commit_label(&h.changeset, h.git_commit.as_deref()))
-                                    .unwrap_or_default();
-                                let mut to = recipients.clone();
-                                let mut add = |who: &str| {
-                                    if !who.is_empty() && !to.iter().any(|t| t == who) {
-                                        to.push(who.to_string());
-                                    }
-                                };
-                                add(&node.created_by.identity);
-                                if let gpp_graphex::NodeSource::AgentProposed {
-                                    approved_by: Some(who),
-                                    ..
-                                } = &node.source
-                                {
-                                    add(who);
-                                }
-                                let _ = n.emit(
-                                    et,
-                                    "gpp",
-                                    false,
-                                    "belief",
-                                    &bid.to_base32(),
-                                    &format!(
-                                        "belief {} \"{}\" at {culprit}",
-                                        data.status.as_str(),
-                                        node.description
-                                    ),
-                                    &to,
-                                );
-                            }
-                        }
                         if matches!(
                             data.status,
                             BeliefStatus::StaleCandidate | BeliefStatus::Invalidated
@@ -442,42 +377,20 @@ pub fn belief(args: &BeliefArgs, repo_override: Option<&Path>, json: bool) -> Re
 
         BeliefAction::Reaffirm { id, evidence } => {
             let tip = head_tip(&repo)?;
-            let (bid, mut node) = gpp_graphex::resolve_belief(&gs, id)?;
-            let mut data = node
-                .belief
-                .clone()
-                .ok_or_else(|| anyhow!("node {} has no belief payload", bid.short()))?;
+            let (bid, _) = gpp_graphex::resolve_belief(&gs, id)?;
             let cs: Changeset = gs.objects().read(&tip)?;
             let files = flatten_tree(gs.objects(), &cs.tree)?;
-
-            let new_evidence = if evidence.is_empty() {
-                // Re-hash the existing spans at the new anchor.
-                let specs: Vec<String> = data
-                    .evidence
-                    .iter()
-                    .map(|e| format!("{}:{}-{}", e.path, e.span.0, e.span.1))
-                    .collect();
-                gpp_graphex::verify_evidence(gs.objects(), &files, &specs).context(
-                    "existing evidence no longer valid at HEAD — pass new --evidence spans",
-                )?
-            } else {
-                gpp_graphex::verify_evidence(gs.objects(), &files, evidence)?
-            };
-
-            data.anchor = tip;
-            data.evidence = new_evidence;
-            data.invalidated_by = None;
             let author = config_author(&repo);
-            data.record(gpp_graphex::StatusChange {
-                changeset: tip,
-                at: cs.timestamp,
-                to: BeliefStatus::Reaffirmed,
-                causes: vec![gpp_graphex::Cause::Reaffirmed {
-                    by: author.identity.clone(),
-                }],
-            });
-            node.belief = Some(data);
-            gpp_graphex::save_belief(&gs, &node)?;
+            gpp_graphex::reaffirm_belief(
+                &gs,
+                &bid,
+                tip,
+                cs.timestamp,
+                &files,
+                evidence,
+                &author.identity,
+            )
+            .context("reaffirming belief")?;
 
             if json {
                 println!(

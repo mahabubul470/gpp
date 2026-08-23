@@ -310,3 +310,23 @@ name/description). This release closes that.
   (Glama) — pre-initialized Graphex repo so the server answers
   `initialize`/`tools/list` unmounted; Glama badge on the awesome-mcp
   PR; repo topics `codebase-memory`/`agent-memory`/`mcp-server`/`ai-memory`.
+
+## 2026-08-23 (later) — 0.2.1: promote-time belief scan, agent reaffirm
+
+- `gpp_sdk::scan_beliefs(gpp_dir, tip)` is now the single scan-and-notify
+  path, called by `gpp promote`, `AgentSession::propose_changeset` (so MCP
+  promotes scan too), and `gpp belief stale`. The post-commit hook is no
+  longer load-bearing for events — a crates.io install gets them out of the
+  box. `promote` prints transitions inline
+  (`belief invalidated  <id>  "<claim>"`). Cost: one scan per belief per
+  promote; fine at hand-seeded/agent-proposed scale.
+- `reaffirm_belief` MCP tool + `AgentSession::reaffirm_belief`, backed by
+  `gpp_graphex::reaffirm_belief` (CLI uses the same fn now). Rule: an
+  agent may reaffirm `active`/`stale-candidate` beliefs; **invalidated
+  beliefs are refused** — grounds gone, so the agent must `propose_belief`
+  afresh and go through human approval. Reaffirm is audited under the
+  agent id and recorded as `reaffirmed by agent:…` in the belief log.
+- Tests: `belief_agent.rs` now asserts the promote-time scan (unrelated
+  promote → silent; evidence change → inline line + exactly one event with
+  no hook), the invalidated-refusal, and a stale-candidate → agent
+  reaffirm → clean envelope round trip. 179 → 180.

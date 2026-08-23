@@ -393,6 +393,52 @@ pub fn save_belief(store: &GraphStore, node: &GraphNode) -> Result<Hash> {
     store.put_node(&node, state)
 }
 
+/// Re-anchor a belief at `tip` after a human or agent has re-verified it.
+/// With no `evidence` specs the existing spans are re-verified at the new
+/// anchor (they must still fit); otherwise the new spans replace them.
+/// Records a `Reaffirmed` transition attributed to `by`.
+pub fn reaffirm_belief(
+    store: &GraphStore,
+    id: &Hash,
+    tip: Hash,
+    tip_at: i64,
+    files: &BTreeMap<String, Hash>,
+    evidence: &[String],
+    by: &str,
+) -> Result<()> {
+    let mut node = store.get_node(id)?;
+    let mut data = node
+        .belief
+        .clone()
+        .ok_or_else(|| Error::Other(format!("node {} is not a belief", id.short())))?;
+    let new_evidence = if evidence.is_empty() {
+        let specs: Vec<String> = data
+            .evidence
+            .iter()
+            .map(|e| format!("{}:{}-{}", e.path, e.span.0, e.span.1))
+            .collect();
+        verify_evidence(store.objects(), files, &specs).map_err(|e| {
+            Error::Other(format!(
+                "existing evidence no longer valid at HEAD — pass new evidence spans: {e}"
+            ))
+        })?
+    } else {
+        verify_evidence(store.objects(), files, evidence)?
+    };
+    data.anchor = tip;
+    data.evidence = new_evidence;
+    data.invalidated_by = None;
+    data.record(StatusChange {
+        changeset: tip,
+        at: tip_at,
+        to: BeliefStatus::Reaffirmed,
+        causes: vec![Cause::Reaffirmed { by: by.to_string() }],
+    });
+    node.belief = Some(data);
+    save_belief(store, &node)?;
+    Ok(())
+}
+
 // ---------------------------------------------------------------------------
 // Evidence / scope verification against an anchor tree (shared by the CLI
 // and the agent SDK so an agent-proposed belief is held to the same bar).

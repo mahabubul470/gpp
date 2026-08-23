@@ -7,8 +7,8 @@ repository.workspace = true
 description = "gpp curated changeset history + promotion"
 
 [dependencies]
-gpp-core = { path = "../gpp-core", version = "0.2.0" }
-gpp-timeline = { path = "../gpp-timeline", version = "0.2.0" }
+gpp-core = { path = "../gpp-core", version = "0.2.1" }
+gpp-timeline = { path = "../gpp-timeline", version = "0.2.1" }
 serde.workspace = true
 rmp-serde.workspace = true
 thiserror.workspace = true

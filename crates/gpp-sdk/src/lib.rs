@@ -177,6 +177,52 @@ impl AgentSession {
         Ok((id, anchor, warnings))
     }
 
+    /// Re-anchor a belief at HEAD after re-verifying it. Allowed for
+    /// `active` / `stale-candidate` beliefs; an **invalidated** belief cannot
+    /// be blessed back — its grounds are gone, so the agent must
+    /// [`propose_belief`](Self::propose_belief) afresh with new evidence and
+    /// go through human approval again. Recorded in the audit log under the
+    /// agent's identity.
+    pub fn reaffirm_belief(&self, spec: &str, evidence: &[String]) -> Result<(Hash, Hash)> {
+        let gs = GraphStore::open(&self.gpp_dir)?;
+        let (id, node) = gpp_graphex::resolve_belief(&gs, spec)?;
+        let data = node
+            .belief
+            .as_ref()
+            .ok_or_else(|| Error::Other(format!("{} is not a belief", id.short())))?;
+        if data.status == gpp_graphex::BeliefStatus::Invalidated {
+            return Err(Error::Other(format!(
+                "belief {} is invalidated (evidence changed at cs:{}) — an agent cannot \
+                 reaffirm it; propose a new belief with current evidence instead",
+                id.short(),
+                data.invalidated_by.map(|h| h.short()).unwrap_or_default()
+            )));
+        }
+        let tip = RefStore::open(&self.gpp_dir)
+            .head_tip()?
+            .ok_or_else(|| Error::Other("no changesets yet".into()))?;
+        let cs: gpp_history::Changeset = gs.objects().read(&tip)?;
+        let files = flatten_tree(gs.objects(), &cs.tree)?;
+        gpp_graphex::reaffirm_belief(
+            &gs,
+            &id,
+            tip,
+            cs.timestamp,
+            &files,
+            evidence,
+            &self.agent_id,
+        )?;
+        gs.log_access(
+            "agent",
+            &self.agent_id,
+            "reaffirm_belief",
+            std::slice::from_ref(&node.name),
+            None,
+            Some(&format!("anchor cs:{}", tip.short())),
+        )?;
+        Ok((id, tip))
+    }
+
     fn author(&self) -> Author {
         Author {
             author_type: AuthorType::Agent,
@@ -240,6 +286,9 @@ impl AgentSession {
                 author: self.author(),
             },
         )?;
+        // History just moved: let it rule on every belief, and fan out any
+        // transition (best-effort — a scan failure never un-promotes).
+        let _ = scan_beliefs(&self.gpp_dir, outcome.changeset);
         Ok(outcome.changeset)
     }
 
@@ -332,6 +381,108 @@ impl AgentSession {
         cs.add_usage(&changeset.to_base32(), &self.agent_id, model_id, usage)?;
         Ok(())
     }
+}
+
+/// One belief whose status changed during a scan.
+#[derive(Debug, Clone)]
+pub struct BeliefTransition {
+    pub id: Hash,
+    pub claim: String,
+    pub from: Option<gpp_graphex::BeliefStatus>,
+    pub to: gpp_graphex::BeliefStatus,
+    /// The changeset that caused the new status, if the scan found one.
+    pub at: Option<Hash>,
+    pub git_commit: Option<String>,
+}
+
+/// Scan every belief against `tip`, persist new history, and emit a
+/// `belief.stale_candidate` / `belief.invalidated` event for each status
+/// *transition* (never for a rescan that changes nothing). Recipients: RBAC
+/// maintainers/owners, the belief's author, and the approver of an agent
+/// proposal. Shared by `gpp promote`, `gpp belief stale`, the post-commit
+/// hook, and [`AgentSession::propose_changeset`].
+pub fn scan_beliefs(gpp_dir: &Path, tip: Hash) -> Result<Vec<BeliefTransition>> {
+    use gpp_graphex::BeliefStatus;
+    use gpp_notify::{EventType, Notifier};
+
+    let gs = GraphStore::open(gpp_dir)?;
+    let notifier = Notifier::open(gpp_dir).ok();
+    let maintainers: Vec<String> = gpp_rbac::RoleStore::open(gpp_dir)
+        .and_then(|rs| rs.list())
+        .map(|as_| {
+            as_.into_iter()
+                .filter(|a| matches!(a.role, gpp_rbac::Role::Maintainer | gpp_rbac::Role::Owner))
+                .map(|a| a.identity)
+                .collect()
+        })
+        .unwrap_or_default();
+
+    let mut out = Vec::new();
+    for (id, before) in gpp_graphex::list_beliefs(&gs)? {
+        let from = before.belief.as_ref().map(|b| b.status);
+        let (node, hits) = match gpp_graphex::scan_and_record(&gs, &id, tip) {
+            Ok(x) => x,
+            Err(_) => continue, // e.g. anchor not on this branch — skip, never fail the caller
+        };
+        let Some(data) = node.belief.as_ref() else {
+            continue;
+        };
+        if Some(data.status) == from {
+            continue;
+        }
+        let culprit = hits.iter().find(|h| h.verdict == data.status);
+        let t = BeliefTransition {
+            id,
+            claim: node.description.clone(),
+            from,
+            to: data.status,
+            at: culprit.map(|h| h.changeset),
+            git_commit: culprit.and_then(|h| h.git_commit.clone()),
+        };
+        let et = match data.status {
+            BeliefStatus::Invalidated => Some(EventType::BeliefInvalidated),
+            BeliefStatus::StaleCandidate => Some(EventType::BeliefStaleCandidate),
+            _ => None,
+        };
+        if let (Some(n), Some(et)) = (&notifier, et) {
+            let mut to = maintainers.clone();
+            let mut add = |who: &str| {
+                if !who.is_empty() && !to.iter().any(|t| t == who) {
+                    to.push(who.to_string());
+                }
+            };
+            add(&node.created_by.identity);
+            if let NodeSource::AgentProposed {
+                approved_by: Some(who),
+                ..
+            } = &node.source
+            {
+                add(who);
+            }
+            let label = match (&t.at, &t.git_commit) {
+                (Some(cs), Some(git)) => {
+                    format!("cs:{} (git {})", cs.short(), &git[..git.len().min(8)])
+                }
+                (Some(cs), None) => format!("cs:{}", cs.short()),
+                _ => String::new(),
+            };
+            let _ = n.emit(
+                et,
+                "gpp",
+                false,
+                "belief",
+                &id.to_base32(),
+                &format!(
+                    "belief {} \"{}\" at {label}",
+                    data.status.as_str(),
+                    node.description
+                ),
+                &to,
+            );
+        }
+        out.push(t);
+    }
+    Ok(out)
 }
 
 #[cfg(test)]

@@ -149,15 +149,38 @@ fn agent_proposed_belief_is_gated_policed_and_surfaced() {
     );
     assert!(ctx_text.contains("0 commits since"), "{ctx_text}");
 
-    // History moves against the evidence.
+    // An unrelated file changes: the evidence *file* is untouched, so no
+    // transition, no event, and the promote output says nothing about it.
+    std::fs::write(ctx.repo.path().join("main.rs"), "fn main() {}\n").unwrap();
+    let out = gpp(ctx.repo.path(), &ctx.home_path)
+        .args(["promote", "-m", "add main"])
+        .assert()
+        .success();
+    assert!(!String::from_utf8_lossy(&out.get_output().stdout).contains("belief "));
+
+    // History moves against the evidence. `promote` itself now runs the
+    // scan: the transition is reported inline and the event is emitted
+    // without any hook or manual `belief stale`.
     std::fs::write(
         ctx.repo.path().join("auth/token.rs"),
         "pub const EXPIRY_HOURS: u64 = 168;\npub fn issue() {}\n",
     )
     .unwrap();
-    let c1 = promote(&ctx, "raise expiry to 7 days");
+    let out = gpp(ctx.repo.path(), &ctx.home_path)
+        .args(["promote", "-m", "raise expiry to 7 days"])
+        .assert()
+        .success()
+        .stdout(contains("belief invalidated"))
+        .stdout(contains("token expiry is 24h"));
+    let text = String::from_utf8_lossy(&out.get_output().stdout).to_string();
+    let idx = text.find("cs:").unwrap();
+    let c1 = text[idx + 3..]
+        .split_whitespace()
+        .next()
+        .unwrap()
+        .to_string();
 
-    // First scan: transition → exactly one inbox event. Second scan: none.
+    // Manual rescans afterwards change nothing and emit nothing.
     gpp(ctx.repo.path(), &ctx.home_path)
         .args(["belief", "stale"])
         .assert()
@@ -167,6 +190,15 @@ fn agent_proposed_belief_is_gated_policed_and_surfaced() {
         .args(["belief", "stale"])
         .assert()
         .success();
+
+    // An agent cannot bless an invalidated belief back — grounds are gone.
+    let r = mcp_call(
+        &ctx,
+        "reaffirm_belief",
+        serde_json::json!({"belief":"token expiry is 24h"}),
+    );
+    assert_eq!(r["isError"], true);
+    assert!(mcp_text(&r).contains("cannot"), "{r}");
     let inbox = gpp(ctx.repo.path(), &ctx.home_path)
         .arg("inbox")
         .assert()
@@ -175,7 +207,7 @@ fn agent_proposed_belief_is_gated_policed_and_surfaced() {
     assert_eq!(
         inbox.matches("belief.invalidated").count(),
         1,
-        "one event per transition, not per rescan:\n{inbox}"
+        "one event per transition (promote), not per rescan:\n{inbox}"
     );
     assert!(
         inbox.contains("raise expiry") || inbox.contains(&c1[..8]),
@@ -191,4 +223,58 @@ fn agent_proposed_belief_is_gated_policed_and_surfaced() {
         )),
         "{ctx_text}"
     );
+}
+
+#[test]
+fn agent_can_reaffirm_a_stale_candidate_but_not_an_invalidated_belief() {
+    let ctx = init_repo();
+    std::fs::create_dir_all(ctx.repo.path().join("auth")).unwrap();
+    std::fs::write(
+        ctx.repo.path().join("auth/token.rs"),
+        "pub const EXPIRY_HOURS: u64 = 24;\npub fn issue() {}\n",
+    )
+    .unwrap();
+    promote(&ctx, "seed");
+    let r = mcp_call(
+        &ctx,
+        "propose_belief",
+        serde_json::json!({"claim":"expiry is 24h","evidence":["auth/token.rs:1-1"]}),
+    );
+    assert_ne!(r["isError"], true, "{r}");
+    gpp(ctx.repo.path(), &ctx.home_path)
+        .args(["graphex", "accept", "expiry is 24h"])
+        .assert()
+        .success();
+
+    // Touch the evidence *file* below the span: stale-candidate, not invalidated.
+    std::fs::write(
+        ctx.repo.path().join("auth/token.rs"),
+        "pub const EXPIRY_HOURS: u64 = 24;\npub fn issue() {}\npub fn revoke() {}\n",
+    )
+    .unwrap();
+    gpp(ctx.repo.path(), &ctx.home_path)
+        .args(["promote", "-m", "add revoke"])
+        .assert()
+        .success()
+        .stdout(contains("belief stale-candidate"));
+
+    // The agent re-checks, and may reaffirm: re-anchored at HEAD, back to clean.
+    let r = mcp_call(
+        &ctx,
+        "reaffirm_belief",
+        serde_json::json!({"belief":"expiry is 24h"}),
+    );
+    assert_ne!(r["isError"], true, "{r}");
+    assert!(mcp_text(&r).contains("re-anchored"), "{r}");
+    let ctx_text = mcp_text(&mcp_call(&ctx, "graphex_query", serde_json::json!({})));
+    assert!(
+        ctx_text.contains("expiry is 24h [anchored cs:"),
+        "{ctx_text}"
+    );
+    assert!(!ctx_text.contains("stale candidate"), "{ctx_text}");
+    gpp(ctx.repo.path(), &ctx.home_path)
+        .args(["belief", "log", "expiry is 24h"])
+        .assert()
+        .success()
+        .stdout(contains("reaffirmed by agent:mcp-client"));
 }
