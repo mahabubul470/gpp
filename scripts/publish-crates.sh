@@ -31,7 +31,7 @@ for round in $(seq 1 60); do
         echo "── round $round: publishing $c@$ver"
         if cargo publish -p "$c" --no-verify 2>publish.err; then
             echo "   published $c"
-        elif grep -qi "already exists" publish.err; then
+        elif grep -qi "already exists\|already uploaded" publish.err; then
             echo "   $c already on index (propagating)"
         elif grep -qi "429\|too many" publish.err; then
             echo "   rate limited — sleeping 10m30s"
