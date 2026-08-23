@@ -38,13 +38,25 @@ everyday-fact memory, and gpp claims no score on it.
 > about limits too: two clap beliefs die at an *undocumented* internal
 > file reorg — the true moment their file-anchored evidence vanished.
 >
+> As of 0.2.0 the agent writes the notes itself: over MCP,
+> `propose_belief` records a claim plus the exact lines it rests on,
+> verified against the current changeset. A human approves it; from
+> then on history polices it — every later `graphex_query` shows the
+> belief with a freshness envelope (anchor changeset, commits since, and
+> the commit that staled it), and the approver gets a
+> `belief.invalidated` event the first time a commit breaks it. Agent
+> memory that's human-gated going in and history-gated afterwards.
+>
 > How it differs from the neighbors: session-capture tools (Entire,
 > re_gent) record how code was written but not whether what you believe
 > about it is still true; codebase knowledge graphs (Cognee, Potpie)
 > prune stale nodes on re-ingestion but can't name the commit that
 > staled one; git-like memory stores version the notes, not the code
-> the notes are about. gpp anchors the claims on the code's own history,
-> so the invalidation event and the belief live in the same store.
+> the notes are about; the newer "bi-temporal" memory products
+> (Sentra, Mneme) invalidate facts at ingestion time — when their
+> indexer noticed — rather than at the changeset that caused it. gpp
+> anchors the claims on the code's own history, so the invalidation
+> event and the belief live in the same store.
 >
 > Repo: https://github.com/mahabubul470/gpp
 > Write-up: https://mahabubul470.github.io/gpp/blog/belief-bisect/
@@ -103,12 +115,24 @@ the text in a first comment if the text field feels long.)*
 >   AES-256-GCM; MessagePack + zstd node blobs
 > - P2P sync over Noise_XX (`snow`)
 > - `#![forbid(unsafe_code)]` across the workspace; `thiserror` in
->   libraries, `anyhow` in the CLI; 177 workspace tests (the belief
+>   libraries, `anyhow` in the CLI; 179 workspace tests (the belief
 >   engine has an e2e suite scripting a synthetic 7-commit repo in CI)
 >
+> New in 0.2.0: agents write beliefs themselves via an MCP
+> `propose_belief` tool (evidence spans verified against HEAD with the
+> same code path the CLI uses — the helpers live in `gpp-graphex`), which
+> land `Proposed` for human approval and are scanned from the moment
+> they exist; projections carry a freshness envelope per belief
+> (anchor, first-parent commits since, culprit); and `belief stale`
+> emits `belief.invalidated` events on transitions only. Found a real
+> bug doing it: the belief save path hard-coded the Active state, so a
+> routine scan would have silently approved an agent's proposal — now
+> pinned by a test.
+>
 > It bridges to plain Git (import/export), so it sits alongside GitHub
-> rather than replacing it. Honest limits: beliefs are hand-seeded (no
-> automatic extraction), symbol scopes are top-level declarations, and
+> rather than replacing it. Honest limits: beliefs are hand-seeded or
+> agent-proposed (no automatic extraction from code or conversation),
+> symbol scopes are top-level declarations, and
 > semantic judgment ("does the new code contradict the claim?") is a
 > deliberate trait stub for a v2. Test depth is uneven across the
 > integration crates — noted in the README.
@@ -148,6 +172,12 @@ Evidence lines drift-tracked (64→59) with no false positives.
 *stale-candidate* (re-verify), never "false". Only evidence-span change
 or deletion = *invalidated* — grounds gone, not disproven. Semantic
 judgment is deliberately a v2 stub.
+
+**5b/** 0.2.0: the agent writes the belief itself over MCP
+(`propose_belief` — claim + the exact lines it rests on). A human
+approves it; history polices it. Every later context query shows the
+anchor, commits since, and the commit that broke it. You get pinged the
+first time that happens.
 
 **6/** It's part of gpp, an AI-native VCS in Rust (bridges to plain Git;
 MCP server built in — your agent sees stale beliefs flagged in its

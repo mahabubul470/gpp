@@ -105,7 +105,7 @@
 </header>
 
 <article>
-<div class="meta">2026-08-07 · Mahabubul Hasan · <a href="https://github.com/mahabubul470/gpp">mahabubul470/gpp</a></div>
+<div class="meta">2026-08-07 · updated 2026-08-23 for 0.2.0 · Mahabubul Hasan · <a href="https://github.com/mahabubul470/gpp">mahabubul470/gpp</a></div>
 <h1>Your coding agent's memory goes stale silently. Version control can catch it.</h1>
 
 <p>Every serious agent setup now carries a memory: a <code>CLAUDE.md</code>, a memory
@@ -292,6 +292,35 @@ evidence vanished — "grounds gone, not disproven," working as specified, and a
 live demonstration of why evidence-span (and symbol) precision matters.</li>
 </ul>
 
+<h2>The agent writes the belief; history polices it</h2>
+
+<p>Hand-seeding beliefs proves the engine; the useful loop is the agent writing
+them. As of 0.2.0, an agent connected over MCP calls <code>propose_belief</code>
+with a claim and the exact lines it rests on:</p>
+
+<pre>{"claim": "token expiry is 24h",
+ "evidence": ["auth/token.rs:7-7"],
+ "symbols": ["auth/token.rs:issue_token"]}</pre>
+
+<p>The spans are verified against the current changeset — the same code path
+<code>gpp belief add</code> uses — and the belief is anchored there. It lands
+<i>Proposed</i>: invisible to the agent's own context until a human runs
+<code>gpp graphex accept</code>, but scanned from the moment it exists, so the
+reviewer sees its staleness history before deciding. Once accepted, every later
+<code>graphex_query</code> carries it with a freshness envelope:</p>
+
+<pre>- token expiry is 24h <span class="dim">[anchored cs:kad7ir44 2026-08-23 · 40 commits since]</span>
+- auth issues JWTs <span class="red">✗ [INVALIDATED at cs:fhcpef7c 2026-09-02 — evidence changed; do not rely on this]</span></pre>
+
+<p>and the first time a commit breaks one, <code>gpp belief stale</code> (which
+the post-commit hook runs) emits a <code>belief.invalidated</code> event to the
+person who approved it and the maintainers — once, not on every rescan.</p>
+
+<p><strong>Human-gated going in, history-gated afterwards.</strong> That's the
+shape the design guides now prescribe for agent memory — a staleness envelope
+in the read path and event-driven invalidation — except here the envelope
+names the changeset, not "indexed six days ago."</p>
+
 <h2>Where this sits among the neighbors</h2>
 
 <p>The space around this got busy in 2026, so it's worth being precise about
@@ -313,6 +342,11 @@ store.</li>
 version the <i>memory</i> — you can diff your notes. But the notes' history and
 the code's history are separate stores, so code-drift still has to be detected
 semantically, after the fact.</li>
+<li><strong>Bi-temporal memory products</strong> (Sentra Code Memory, Mneme) now
+say the right words — "invalidated, not deleted", "notes that flag themselves
+stale" — but validity is stamped at <i>ingestion time</i>, when their indexer
+noticed, and the mechanism is undisclosed. A changeset anchor is provable,
+bisectable, and time-travelable (<code>belief at</code>).</li>
 <li><strong>Agent-native VCSes</strong>
 (<a href="https://github.com/atomicdotdev/atomic">Atomic</a>,
 <a href="https://news.ycombinator.com/item?id=48631726">Oak</a>) rethink the version

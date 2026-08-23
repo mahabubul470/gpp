@@ -183,6 +183,39 @@ behaviors the axum run couldn't:
   vanished — "grounds gone, not disproven," working as specified, and a
   live demonstration of why evidence-span (and symbol) precision matters.
 
+## The agent writes the belief; history polices it
+
+Hand-seeding beliefs proves the engine; the useful loop is the agent
+writing them. As of 0.2.0, an agent connected over MCP calls
+`propose_belief` with a claim and the exact lines it rests on:
+
+```json
+{"claim": "token expiry is 24h",
+ "evidence": ["auth/token.rs:7-7"],
+ "symbols": ["auth/token.rs:issue_token"]}
+```
+
+The spans are verified against the current changeset — the same code
+path `gpp belief add` uses — and the belief is anchored there. It lands
+*Proposed*: invisible to the agent's own context until a human runs
+`gpp graphex accept`, but scanned from the moment it exists, so the
+reviewer sees its staleness history before deciding. Once accepted, every
+later `graphex_query` carries it with a freshness envelope:
+
+```
+- token expiry is 24h [anchored cs:kad7ir44 2026-08-23 · 40 commits since]
+- auth issues JWTs ✗ [INVALIDATED at cs:fhcpef7c 2026-09-02 — evidence changed; do not rely on this]
+```
+
+and the first time a commit breaks one, `gpp belief stale` (which the
+post-commit hook runs) emits a `belief.invalidated` event to the person
+who approved it and the maintainers — once, not on every rescan.
+
+Human-gated going in, history-gated afterwards. That's the shape the
+design guides now prescribe for agent memory — a staleness envelope in
+the read path and event-driven invalidation — except here the envelope
+names the changeset, not "indexed six days ago."
+
 ## Where this sits among the neighbors
 
 The space around this got busy in 2026, so it's worth being precise about
@@ -205,6 +238,11 @@ what each neighbor does and doesn't do:
   version the *memory* — you can diff your notes. But the notes' history
   and the code's history are separate stores, so code-drift still has to
   be detected semantically, after the fact.
+- **Bi-temporal memory products** (Sentra Code Memory, Mneme) now say
+  the right words — "invalidated, not deleted", "notes that flag
+  themselves stale" — but validity is stamped at *ingestion time*, when
+  their indexer noticed, and the mechanism is undisclosed. A changeset
+  anchor is provable, bisectable, and time-travelable (`belief at`).
 - **Agent-native VCSes** ([Atomic](https://github.com/atomicdotdev/atomic),
   [Oak](https://news.ycombinator.com/item?id=48631726)) rethink the
   version control substrate — patch theory, virtual mounts, token
