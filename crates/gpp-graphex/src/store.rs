@@ -494,6 +494,11 @@ impl GraphStore {
 
     /// The repo object store this graph reads/writes (shared `.gpp/objects/`
     /// — the same store that holds changesets, trees and blobs).
+    /// The `.gpp` directory this graph lives in.
+    pub fn gpp_dir(&self) -> &std::path::Path {
+        &self.gpp_dir
+    }
+
     pub fn objects(&self) -> &ObjectStore {
         &self.objects
     }

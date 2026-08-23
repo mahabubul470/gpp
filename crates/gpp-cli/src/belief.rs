@@ -8,9 +8,10 @@
 use std::path::Path;
 
 use anyhow::{Context, Result, anyhow, bail};
-use gpp_core::{Blob, Hash, ObjectStore, flatten_tree};
-use gpp_graphex::{AccessTier, BeliefStatus, Evidence, ScanHit, Scope, SymbolRef};
+use gpp_core::{Hash, flatten_tree};
+use gpp_graphex::{AccessTier, BeliefStatus, ScanHit, Scope};
 use gpp_history::{Changeset, RefStore};
+use gpp_notify::{EventType, Notifier};
 
 use crate::cli::{BeliefAction, BeliefArgs};
 use crate::phase3::{config_author, default_tier, open_graph};
@@ -45,94 +46,19 @@ fn head_tip(repo: &Repo) -> Result<Hash> {
         .ok_or_else(|| anyhow!("no changesets yet — `gpp promote` first"))
 }
 
-/// `PATH:START-END` → evidence spec.
-fn parse_evidence_spec(s: &str) -> Result<(String, usize, usize)> {
-    let (path, span) = s
-        .rsplit_once(':')
-        .ok_or_else(|| anyhow!("evidence {s:?} must be PATH:START-END"))?;
-    let (a, b) = span
-        .split_once('-')
-        .ok_or_else(|| anyhow!("evidence {s:?} must be PATH:START-END"))?;
-    let (start, end): (usize, usize) = (a.parse()?, b.parse()?);
-    if start == 0 || end < start {
-        bail!("evidence {s:?}: lines are 1-based and START <= END");
-    }
-    Ok((path.to_string(), start, end))
-}
-
-/// `PATH:NAME` → symbol ref.
-fn parse_symbol_spec(s: &str) -> Result<SymbolRef> {
-    let (path, name) = s
-        .rsplit_once(':')
-        .ok_or_else(|| anyhow!("symbol {s:?} must be PATH:NAME"))?;
-    Ok(SymbolRef {
-        path: path.to_string(),
-        name: name.to_string(),
-    })
-}
-
-/// Build evidence entries against the anchor tree, verifying files and spans.
-fn collect_evidence(
-    objects: &ObjectStore,
-    files: &std::collections::BTreeMap<String, Hash>,
-    specs: &[String],
-) -> Result<Vec<Evidence>> {
-    let mut out = Vec::new();
-    for spec in specs {
-        let (path, start, end) = parse_evidence_spec(spec)?;
-        let blob_hash = *files
-            .get(&path)
-            .ok_or_else(|| anyhow!("evidence file {path:?} not in the anchor tree"))?;
-        let content = objects.read::<Blob>(&blob_hash)?.content;
-        let lines = content.iter().filter(|b| **b == b'\n').count() + 1;
-        if end > lines {
-            bail!("evidence {spec:?}: file has only {lines} line(s)");
-        }
-        out.push(Evidence {
-            path,
-            span: (start, end),
-            blob_hash,
-        });
-    }
-    Ok(out)
-}
-
-/// Verify symbol refs resolve at the anchor (typo guard); unsupported
-/// languages degrade to path-level matching with a warning.
-fn check_symbols(
-    objects: &ObjectStore,
-    files: &std::collections::BTreeMap<String, Hash>,
-    symbols: &[SymbolRef],
-) -> Result<()> {
-    for s in symbols {
-        let blob_hash = files
-            .get(&s.path)
-            .ok_or_else(|| anyhow!("symbol file {:?} not in the anchor tree", s.path))?;
-        let content = objects.read::<Blob>(blob_hash)?.content;
-        match gpp_diff::parser_for_path(&s.path) {
-            Ok(parser) => {
-                let decls = gpp_diff::parse_declarations(parser.as_ref(), &content)
-                    .map_err(|e| anyhow!("parsing {}: {e}", s.path))?;
-                if !decls.iter().any(|d| d.name == s.name) {
-                    bail!(
-                        "symbol {:?} not found in {} (tree-sitter sees: {})",
-                        s.name,
-                        s.path,
-                        decls
-                            .iter()
-                            .map(|d| d.name.as_str())
-                            .collect::<Vec<_>>()
-                            .join(", ")
-                    );
-                }
-            }
-            Err(_) => eprintln!(
-                "warning: no parser for {:?} — symbol {:?} will match at path level",
-                s.path, s.name
-            ),
-        }
-    }
-    Ok(())
+/// Who hears about a belief transition: RBAC maintainers/owners (the
+/// people who approve knowledge), with the belief's author added per event.
+fn belief_recipients(repo: &Repo) -> Vec<String> {
+    use gpp_rbac::{Role, RoleStore};
+    RoleStore::open(&repo.gpp_dir())
+        .and_then(|rs| rs.list())
+        .map(|as_| {
+            as_.into_iter()
+                .filter(|a| matches!(a.role, Role::Maintainer | Role::Owner))
+                .map(|a| a.identity)
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 fn ymd(us: i64) -> String {
@@ -195,10 +121,12 @@ pub fn belief(args: &BeliefArgs, repo_override: Option<&Path>, json: bool) -> Re
 
             let symbols = symbols
                 .iter()
-                .map(|s| parse_symbol_spec(s))
-                .collect::<Result<Vec<_>>>()?;
-            check_symbols(gs.objects(), &files, &symbols)?;
-            let evidence = collect_evidence(gs.objects(), &files, evidence)?;
+                .map(|s| gpp_graphex::parse_symbol_spec(s))
+                .collect::<gpp_graphex::Result<Vec<_>>>()?;
+            for w in gpp_graphex::verify_symbols(gs.objects(), &files, &symbols)? {
+                eprintln!("warning: {w}");
+            }
+            let evidence = gpp_graphex::verify_evidence(gs.objects(), &files, evidence)?;
             let tier = match tier {
                 Some(t) => AccessTier::parse(t)?,
                 None => default_tier(&repo),
@@ -339,10 +267,62 @@ pub fn belief(args: &BeliefArgs, repo_override: Option<&Path>, json: bool) -> Re
                 None => None,
             };
             let mut report = Vec::new();
+            let notifier = Notifier::open(&repo.gpp_dir()).ok();
+            let recipients = belief_recipients(&repo);
             for (bid, node) in gpp_graphex::list_beliefs(&gs)? {
+                let before = node.belief.as_ref().map(|b| b.status);
                 match gpp_graphex::scan_and_record(&gs, &bid, tip) {
                     Ok((node, hits)) => {
                         let data = node.belief.expect("belief node scanned");
+                        // Event-driven invalidation: a status *transition*
+                        // observed by this scan fans out to the belief's
+                        // author and the maintainers — once, not on every
+                        // rescan.
+                        if Some(data.status) != before
+                            && let Some(n) = &notifier
+                        {
+                            let et = match data.status {
+                                BeliefStatus::Invalidated => Some(EventType::BeliefInvalidated),
+                                BeliefStatus::StaleCandidate => {
+                                    Some(EventType::BeliefStaleCandidate)
+                                }
+                                _ => None,
+                            };
+                            if let Some(et) = et {
+                                let culprit = hits
+                                    .iter()
+                                    .find(|h| h.verdict == data.status)
+                                    .map(|h| commit_label(&h.changeset, h.git_commit.as_deref()))
+                                    .unwrap_or_default();
+                                let mut to = recipients.clone();
+                                let mut add = |who: &str| {
+                                    if !who.is_empty() && !to.iter().any(|t| t == who) {
+                                        to.push(who.to_string());
+                                    }
+                                };
+                                add(&node.created_by.identity);
+                                if let gpp_graphex::NodeSource::AgentProposed {
+                                    approved_by: Some(who),
+                                    ..
+                                } = &node.source
+                                {
+                                    add(who);
+                                }
+                                let _ = n.emit(
+                                    et,
+                                    "gpp",
+                                    false,
+                                    "belief",
+                                    &bid.to_base32(),
+                                    &format!(
+                                        "belief {} \"{}\" at {culprit}",
+                                        data.status.as_str(),
+                                        node.description
+                                    ),
+                                    &to,
+                                );
+                            }
+                        }
                         if matches!(
                             data.status,
                             BeliefStatus::StaleCandidate | BeliefStatus::Invalidated
@@ -477,11 +457,11 @@ pub fn belief(args: &BeliefArgs, repo_override: Option<&Path>, json: bool) -> Re
                     .iter()
                     .map(|e| format!("{}:{}-{}", e.path, e.span.0, e.span.1))
                     .collect();
-                collect_evidence(gs.objects(), &files, &specs).context(
+                gpp_graphex::verify_evidence(gs.objects(), &files, &specs).context(
                     "existing evidence no longer valid at HEAD — pass new --evidence spans",
                 )?
             } else {
-                collect_evidence(gs.objects(), &files, evidence)?
+                gpp_graphex::verify_evidence(gs.objects(), &files, evidence)?
             };
 
             data.anchor = tip;

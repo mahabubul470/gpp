@@ -78,6 +78,13 @@ pub fn project(
         }
     }
 
+    // Current tip, for belief freshness envelopes (best-effort: a repo with
+    // no changesets simply gets no "commits since" count).
+    let tip = gpp_history::RefStore::open(store.gpp_dir())
+        .head_tip()
+        .ok()
+        .flatten();
+
     // Decrypt the tier-permitted, active nodes.
     let mut services = Vec::new();
     let mut conventions = Vec::new();
@@ -114,12 +121,12 @@ pub fn project(
             NodeType::Glossary => glossary.push((node.name, node.description)),
             NodeType::Decision => decisions.push((node.created_at, node.description)),
             NodeType::Belief => {
-                let status = node
+                let env = node
                     .belief
                     .as_ref()
-                    .map(|b| b.status)
-                    .unwrap_or(crate::belief::BeliefStatus::Active);
-                beliefs.push((node.description, status));
+                    .map(|b| freshness(store, tip, b))
+                    .unwrap_or_default();
+                beliefs.push((node.description, env));
             }
             _ => conventions.push(format!("{}: {}", node.name, node.description)),
         }
@@ -173,21 +180,8 @@ pub fn project(
     }
     if !beliefs.is_empty() {
         let mut s = String::from("\n### Beliefs\n");
-        for (claim, status) in &beliefs {
-            use crate::belief::BeliefStatus;
-            match status {
-                BeliefStatus::Active | BeliefStatus::Reaffirmed => {
-                    s.push_str(&format!("- {claim}\n"));
-                }
-                BeliefStatus::StaleCandidate => {
-                    s.push_str(&format!("- {claim} ⚠ [stale candidate — re-verify]\n"));
-                }
-                BeliefStatus::Invalidated => {
-                    s.push_str(&format!(
-                        "- {claim} ✗ [INVALIDATED — do not rely on this]\n"
-                    ));
-                }
-            }
+        for (claim, env) in &beliefs {
+            s.push_str(&format!("- {claim} {env}\n"));
         }
         push_section(&mut text, &mut truncated, s);
     }
@@ -211,4 +205,38 @@ pub fn project(
         truncated,
         projection_hash,
     })
+}
+
+/// Freshness envelope for a belief line in the projection — the read-path
+/// staleness signal an agent needs to discount a fact instead of trusting it:
+/// where it was anchored, how much history has passed, and (if history has
+/// ruled) which changeset ruled and how.
+fn freshness(store: &GraphStore, tip: Option<Hash>, b: &crate::belief::BeliefData) -> String {
+    use crate::belief::BeliefStatus;
+    let anchored_at = b.history.first().map(|h| ymd(h.at)).unwrap_or_default();
+    let since = tip
+        .and_then(|t| crate::stale::commits_since(store.objects(), t, b.anchor).ok())
+        .map(|n| format!(" · {n} commit{} since", if n == 1 { "" } else { "s" }))
+        .unwrap_or_default();
+    let last = |st: BeliefStatus| {
+        b.history
+            .iter()
+            .rev()
+            .find(|h| h.to == st)
+            .map(|h| format!("cs:{} {}", h.changeset.short(), ymd(h.at)))
+    };
+    match b.status {
+        BeliefStatus::Active | BeliefStatus::Reaffirmed => {
+            format!("[anchored cs:{} {anchored_at}{since}]", b.anchor.short())
+        }
+        BeliefStatus::StaleCandidate => format!(
+            "⚠ [stale candidate since {} — scope touched, evidence intact; anchored cs:{} {anchored_at}{since} — re-verify]",
+            last(BeliefStatus::StaleCandidate).unwrap_or_default(),
+            b.anchor.short()
+        ),
+        BeliefStatus::Invalidated => format!(
+            "✗ [INVALIDATED at {} — evidence changed; do not rely on this]",
+            last(BeliefStatus::Invalidated).unwrap_or_default()
+        ),
+    }
 }

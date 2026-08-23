@@ -19,8 +19,9 @@ gpp belief bisect "token expiry is 24h"
 ## MCP server
 
 The binary ships a Model Context Protocol server. Agents get
-`graphex_query` (project context with stale beliefs flagged in-line),
-`propose_changeset`, and `report_cost`:
+`graphex_query` (project context where every belief carries a freshness
+envelope), `propose_belief` (agent-written, evidence-anchored beliefs that
+history polices), `propose_changeset`, and `report_cost`:
 
 ```json
 {

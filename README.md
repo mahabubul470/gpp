@@ -78,9 +78,11 @@ runs entirely on history imported through this bridge.
 
 ## Connect Claude Code (or any MCP client)
 
-gpp ships an MCP server; agents query the knowledge graph (with staleness
-flags), propose changesets, and report costs. Drop this in `.mcp.json` at
-your repo root:
+gpp ships an MCP server; agents query the knowledge graph (every belief
+with a freshness envelope — anchor, commits since, and the changeset that
+staled it), **write their own evidence-anchored beliefs** with
+`propose_belief` (human-approved, then policed by history), propose
+changesets, and report costs. Drop this in `.mcp.json` at your repo root:
 
 ```json
 {
@@ -101,7 +103,7 @@ documented deviations, [`docs/TODO.md`](docs/TODO.md) for the prioritized
 backlog, and [`docs/WORKLOG.md`](docs/WORKLOG.md) for the running
 engineering log.
 
-Verified 2026-07-12: **177 workspace tests pass**, `cargo clippy` and
+Verified 2026-08-23: **179 workspace tests pass**, `cargo clippy` and
 `cargo fmt` clean, full workspace builds. No stub crates remain — every
 crate has a working implementation. Coverage is measured in CI
 (`cargo llvm-cov`; 65.7% line at baseline, being raised).

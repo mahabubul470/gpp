@@ -41,6 +41,16 @@ with the repository as a first-class agent:
 5. If you learned a durable fact about the codebase (a module, an invariant, \
    a glossary term), call `propose_graph_update` to suggest it. It lands as \
    Proposed for a human to approve — never applied silently.
+6. If you learned something about the code that a future agent should not \
+   have to rediscover — and that could silently stop being true — record it \
+   with `propose_belief`: the claim plus the exact lines it rests on \
+   (`evidence: [\"path:start-end\"]`) and/or the paths/symbols it is about. It \
+   is anchored at the current changeset; from then on history polices it: \
+   any later commit that changes the evidence invalidates it, and \
+   `graphex_query` shows it with a freshness envelope (anchor, commits since, \
+   and the changeset that staled it) so agents discount it instead of \
+   trusting it. Pin evidence to the precise lines that justify the claim, not \
+   whole functions — span precision is verdict precision.
 
 Changesets you propose are reviewed by humans before they merge. Be honest in \
 messages and intents; your trust score depends on it.";
@@ -158,6 +168,21 @@ fn tool_specs() -> Vec<Value> {
             json!({"node_type":{"type":"string"},"name":{"type":"string"},
                    "description":{"type":"string"},"tier":{"type":"string"}}),
             json!(["node_type", "name", "description"]),
+        ),
+        s(
+            "propose_belief",
+            "Record an evidence-anchored belief about the code (lands as \
+             Proposed for human approval; staleness-checked against history \
+             from the moment it exists). evidence entries are \"path:start-end\" \
+             (1-based, inclusive lines at the current changeset); paths are \
+             repo-relative paths or globs; symbols are \"path:Name\". At least \
+             one of evidence/paths/symbols is required.",
+            json!({"claim":{"type":"string"},
+                   "evidence":{"type":"array","items":{"type":"string"}},
+                   "paths":{"type":"array","items":{"type":"string"}},
+                   "symbols":{"type":"array","items":{"type":"string"}},
+                   "tier":{"type":"string"}}),
+            json!(["claim"]),
         ),
         s(
             "report_cost",
@@ -299,6 +324,47 @@ fn handle_tool_call(
                     "proposed node {nname:?} (cs:{}) — awaiting human approval",
                     id.short()
                 )))
+            }
+            "propose_belief" => {
+                let claim = a
+                    .get("claim")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| anyhow::anyhow!("claim is required"))?;
+                let list = |k: &str| -> Vec<String> {
+                    a.get(k)
+                        .and_then(|v| v.as_array())
+                        .map(|arr| {
+                            arr.iter()
+                                .filter_map(|x| x.as_str().map(str::to_string))
+                                .collect()
+                        })
+                        .unwrap_or_default()
+                };
+                let tier = a
+                    .get("tier")
+                    .and_then(|v| v.as_str())
+                    .map(AccessTier::parse)
+                    .transpose()?
+                    .unwrap_or(AccessTier::AgentReadable);
+                let sess = AgentSession::open(&repo.root, AGENT_ID, "MCP Client", max_tier)?;
+                let (id, anchor, warnings) = sess.propose_belief(
+                    claim,
+                    &list("paths"),
+                    &list("symbols"),
+                    &list("evidence"),
+                    tier,
+                )?;
+                let mut out = format!(
+                    "proposed belief {} anchored at cs:{} — awaiting human approval; \
+                     history polices it from here (gpp belief stale / bisect {})",
+                    id.short(),
+                    anchor.short(),
+                    id.short()
+                );
+                for w in warnings {
+                    out.push_str(&format!("\nwarning: {w}"));
+                }
+                Ok(text_result(out))
             }
             other => Ok(err_result(format!("unknown tool: {other}"))),
         }

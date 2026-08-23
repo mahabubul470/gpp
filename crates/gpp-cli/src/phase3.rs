@@ -343,7 +343,17 @@ pub fn graphex(args: &GraphexArgs, repo_override: Option<&Path>, json: bool) -> 
         GraphexAction::Accept { node } => {
             let gs = open_graph(&repo)?;
             let id = gs.node_id_by_name(node)?;
-            gs.set_state(&id, NodeState::Active)?;
+            // Record who approved an agent proposal: provenance for the audit
+            // trail, and the person who hears when the fact later goes stale.
+            let mut n = gs.get_node(&id)?;
+            if let gpp_graphex::NodeSource::AgentProposed { approved_by, .. } = &mut n.source {
+                *approved_by = Some(config_author(&repo).identity);
+                n.validated_at = Some(gpp_graphex::now_micros());
+                n.updated_at = gpp_graphex::now_micros();
+                gs.put_node(&n, NodeState::Active)?;
+            } else {
+                gs.set_state(&id, NodeState::Active)?;
+            }
             gs.clear_proposal(&id)?;
             println!("Accepted {node:?} → Active");
             Ok(())

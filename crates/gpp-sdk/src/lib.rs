@@ -12,15 +12,19 @@
 //! * [`AgentSession::report_cost`] — attribute real token/compute [`Usage`] to
 //!   a changeset, so the cost layer holds actual numbers rather than the zeros
 //!   written at promote time.
+//! * [`AgentSession::propose_belief`] — record an evidence-anchored belief
+//!   about the code. It lands as *Proposed* like any graph update, but is
+//!   anchored at HEAD with verified evidence spans from the moment it is
+//!   written, so the staleness engine polices it from day one.
 //!
 //! See `docs/ROADMAP.md` (Phase 3).
 #![forbid(unsafe_code)]
 
 use std::path::{Path, PathBuf};
 
-use gpp_core::Hash;
+use gpp_core::{Hash, flatten_tree};
 use gpp_graphex::{
-    AccessTier, GraphEdge, GraphNode, GraphStore, NodeSource, NodeState, NodeType, Pattern,
+    AccessTier, GraphEdge, GraphNode, GraphStore, NodeSource, NodeState, NodeType, Pattern, Scope,
     now_micros,
 };
 use gpp_history::{Author, AuthorType, IntentType, PromoteOptions, RefStore};
@@ -35,6 +39,8 @@ pub enum Error {
     NotARepo(String),
     #[error("graphex error: {0}")]
     Graphex(#[from] gpp_graphex::Error),
+    #[error("store error: {0}")]
+    Core(#[from] gpp_core::Error),
     #[error("history error: {0}")]
     History(#[from] gpp_history::Error),
     #[error("timeline error: {0}")]
@@ -105,6 +111,70 @@ impl AgentSession {
             agent_name: agent_name.into(),
             max_tier,
         })
+    }
+
+    /// Propose an evidence-anchored belief about the code.
+    ///
+    /// `evidence` entries are `PATH:START-END` (1-based, inclusive) and
+    /// `symbols` are `PATH:NAME`; every path must exist in the HEAD tree and
+    /// every span must fit its file — the same bar `gpp belief add` holds a
+    /// human to. The belief is anchored at HEAD and lands as
+    /// [`NodeState::Proposed`]: invisible to projections until a human
+    /// approves it, but scanned for staleness from the moment it exists.
+    /// Returns `(node id, anchor changeset, parser warnings)`.
+    pub fn propose_belief(
+        &self,
+        claim: &str,
+        paths: &[String],
+        symbols: &[String],
+        evidence: &[String],
+        tier: AccessTier,
+    ) -> Result<(Hash, Hash, Vec<String>)> {
+        let claim = claim.trim();
+        if claim.is_empty() {
+            return Err(Error::Other("a belief needs a claim".into()));
+        }
+        if paths.is_empty() && symbols.is_empty() && evidence.is_empty() {
+            return Err(Error::Other(
+                "a belief needs a scope: at least one path, symbol or evidence span".into(),
+            ));
+        }
+        if tier > self.max_tier {
+            return Err(Error::Other(format!(
+                "cannot propose at tier {} above this session's {}",
+                tier.as_str(),
+                self.max_tier.as_str()
+            )));
+        }
+        let refs = RefStore::open(&self.gpp_dir);
+        let anchor = refs
+            .head_tip()?
+            .ok_or_else(|| Error::Other("no changesets yet — promote first".into()))?;
+        let gs = GraphStore::open(&self.gpp_dir)?;
+        let cs: gpp_history::Changeset = gs.objects().read(&anchor)?;
+        let files = flatten_tree(gs.objects(), &cs.tree)?;
+        let symbols = symbols
+            .iter()
+            .map(|s| gpp_graphex::parse_symbol_spec(s))
+            .collect::<gpp_graphex::Result<Vec<_>>>()?;
+        let warnings = gpp_graphex::verify_symbols(gs.objects(), &files, &symbols)?;
+        let evidence = gpp_graphex::verify_evidence(gs.objects(), &files, evidence)?;
+        let scope = Scope {
+            paths: paths.to_vec(),
+            symbols,
+        };
+        let id = gpp_graphex::add_belief_proposed(
+            &gs,
+            claim,
+            scope,
+            anchor,
+            cs.timestamp,
+            evidence,
+            tier,
+            self.author(),
+            &self.agent_id,
+        )?;
+        Ok((id, anchor, warnings))
     }
 
     fn author(&self) -> Author {
@@ -339,5 +409,124 @@ mod tests {
         assert_eq!(rec.cost_microdollars, 18_000);
         assert_eq!(rec.model_id, "claude-opus-4-8");
         assert_eq!(rec.agent_id, "agent:claude");
+    }
+    #[test]
+    fn propose_belief_lands_proposed_and_stays_proposed_through_scans() {
+        let d = tempfile::tempdir().unwrap();
+        init_repo(d.path());
+        let sess = AgentSession::open(
+            d.path(),
+            "agent:claude",
+            "Claude",
+            AccessTier::AgentReadable,
+        )
+        .unwrap();
+        let gpp = d.path().join(".gpp");
+
+        // No changesets yet -> nothing to anchor to.
+        let err = sess
+            .propose_belief(
+                "x",
+                &[],
+                &[],
+                &["a.rs:1-1".into()],
+                AccessTier::AgentReadable,
+            )
+            .unwrap_err();
+        assert!(err.to_string().contains("no changesets"));
+
+        std::fs::write(
+            d.path().join("auth.rs"),
+            "pub const EXPIRY_HOURS: u64 = 24;\npub fn issue() {}\n",
+        )
+        .unwrap();
+        let c0 = sess
+            .propose_changeset(None, None, "seed", IntentType::Feature)
+            .unwrap();
+
+        // Evidence is verified against the anchor tree, same bar as the CLI.
+        let err = sess
+            .propose_belief(
+                "expiry is 24h",
+                &[],
+                &[],
+                &["auth.rs:9-9".into()],
+                AccessTier::AgentReadable,
+            )
+            .unwrap_err();
+        assert!(err.to_string().contains("only 3 line(s)"), "{err}");
+        let err = sess
+            .propose_belief("no scope", &[], &[], &[], AccessTier::AgentReadable)
+            .unwrap_err();
+        assert!(err.to_string().contains("needs a scope"));
+        let err = sess
+            .propose_belief(
+                "over tier",
+                &[],
+                &[],
+                &["auth.rs:1-1".into()],
+                AccessTier::HumanOnly,
+            )
+            .unwrap_err();
+        assert!(err.to_string().contains("above this session"));
+
+        let (id, anchor, warnings) = sess
+            .propose_belief(
+                "token expiry is 24h",
+                &[],
+                &["auth.rs:issue".into()],
+                &["auth.rs:1-1".into()],
+                AccessTier::AgentReadable,
+            )
+            .unwrap();
+        assert_eq!(anchor, c0);
+        assert!(warnings.is_empty(), "{warnings:?}");
+
+        let gs = GraphStore::open(&gpp).unwrap();
+        let meta = gs.node_meta(&id).unwrap().unwrap();
+        assert_eq!(meta.state, NodeState::Proposed);
+        assert!(
+            gpp.join("graphex/pending")
+                .join(format!("{}.proposal", id.to_base32()))
+                .exists()
+        );
+        let node = gs.get_node(&id).unwrap();
+        assert!(matches!(node.source, NodeSource::AgentProposed { .. }));
+        let b = node.belief.as_ref().unwrap();
+        assert_eq!(b.evidence.len(), 1);
+        assert_eq!(b.scope.symbols[0].name, "issue");
+
+        // Proposed beliefs are invisible to projections until approved.
+        let ctx = sess.query_graphex(None, 5_000).unwrap();
+        assert!(!ctx.contains("token expiry is 24h"));
+
+        // History moves: the evidence line changes. The scan must record the
+        // invalidation *without* promoting the node to Active.
+        std::fs::write(
+            d.path().join("auth.rs"),
+            "pub const EXPIRY_HOURS: u64 = 168;\npub fn issue() {}\n",
+        )
+        .unwrap();
+        let c1 = sess
+            .propose_changeset(None, None, "raise expiry", IntentType::BugFix)
+            .unwrap();
+        let (node, hits) = gpp_graphex::scan_and_record(&gs, &id, c1).unwrap();
+        let b = node.belief.as_ref().unwrap();
+        assert_eq!(b.status, gpp_graphex::BeliefStatus::Invalidated);
+        assert_eq!(hits[0].changeset, c1);
+        assert_eq!(
+            gs.node_meta(&id).unwrap().unwrap().state,
+            NodeState::Proposed,
+            "a scan must never approve an agent-proposed belief"
+        );
+
+        // Once approved, the projection carries the freshness envelope.
+        gs.set_state(&id, NodeState::Active).unwrap();
+        let ctx = sess.query_graphex(None, 5_000).unwrap();
+        assert!(
+            ctx.contains("token expiry is 24h ✗ [INVALIDATED at cs:"),
+            "{ctx}"
+        );
+        assert!(ctx.contains(&c1.short()), "{ctx}");
     }
 }

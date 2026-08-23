@@ -371,8 +371,11 @@ gpp belief bisect "token expiry is 24h"</pre>
   }
 }</pre>
 
-<p>The agent gets <code>graphex_query</code> (project context where stale beliefs
-are flagged in-line), <code>propose_changeset</code>, and <code>report_cost</code> — see
+<p>The agent gets <code>graphex_query</code> (project context where every belief
+carries a freshness envelope — anchor, commits since, culprit),
+<code>propose_belief</code> (the agent writes its own evidence-anchored
+beliefs, human-approved, then policed by history), <code>propose_changeset</code>,
+and <code>report_cost</code> — see
 <a href="https://github.com/mahabubul470/gpp/blob/main/docs/MCP.md">docs/MCP.md</a>.</p>
 
 <p>The full validation matrix, per-repo configs, the synthetic CI test, and

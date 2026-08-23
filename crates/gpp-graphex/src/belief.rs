@@ -239,6 +239,83 @@ pub fn add_belief(
     tier: AccessTier,
     author: Author,
 ) -> Result<Hash> {
+    let node = belief_node(
+        claim,
+        scope,
+        anchor,
+        anchor_at,
+        evidence,
+        tier,
+        author,
+        NodeSource::HumanCreated,
+        1.0,
+    );
+    store.put_node(&node, NodeState::Active)
+}
+
+/// Create a belief *proposed by an agent*: same anchoring and evidence bar
+/// as [`add_belief`], but it lands as [`NodeState::Proposed`] (invisible to
+/// projections until a human approves it) with a pending-proposal record,
+/// exactly like any other agent graph update. Scans still track it, so by
+/// the time a human looks, its staleness history is already there.
+#[allow(clippy::too_many_arguments)]
+pub fn add_belief_proposed(
+    store: &GraphStore,
+    claim: &str,
+    scope: Scope,
+    anchor: Hash,
+    anchor_at: i64,
+    evidence: Vec<Evidence>,
+    tier: AccessTier,
+    author: Author,
+    agent_id: &str,
+) -> Result<Hash> {
+    let node = belief_node(
+        claim,
+        scope,
+        anchor,
+        anchor_at,
+        evidence,
+        tier,
+        author,
+        NodeSource::AgentProposed {
+            agent_id: agent_id.to_string(),
+            approved_by: None,
+        },
+        0.7,
+    );
+    let id = store.put_node(&node, NodeState::Proposed)?;
+    let payload = serde_json::json!({
+        "proposed_by": agent_id,
+        "node": claim,
+        "kind": "belief",
+        "anchor": anchor.to_base32(),
+    })
+    .to_string();
+    store.write_proposal(&id, &payload)?;
+    store.log_access(
+        "agent",
+        agent_id,
+        "propose_update",
+        &[claim.to_string()],
+        None,
+        Some("add_belief"),
+    )?;
+    Ok(id)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn belief_node(
+    claim: &str,
+    scope: Scope,
+    anchor: Hash,
+    anchor_at: i64,
+    evidence: Vec<Evidence>,
+    tier: AccessTier,
+    author: Author,
+    source: NodeSource,
+    confidence: f32,
+) -> GraphNode {
     let data = BeliefData {
         scope,
         anchor,
@@ -253,7 +330,8 @@ pub fn add_belief(
         }],
     };
     let t = now_micros();
-    let node = GraphNode {
+    let human = matches!(source, NodeSource::HumanCreated);
+    GraphNode {
         node_type: NodeType::Belief,
         name: claim.to_string(),
         description: claim.to_string(),
@@ -262,12 +340,11 @@ pub fn add_belief(
         created_by: author,
         created_at: t,
         updated_at: t,
-        confidence: 1.0,
-        validated_at: Some(t),
-        source: NodeSource::HumanCreated,
+        confidence,
+        validated_at: if human { Some(t) } else { None },
+        source,
         belief: Some(data),
-    };
-    store.put_node(&node, NodeState::Active)
+    }
 }
 
 /// Load every belief node (decrypts each; belief counts are small).
@@ -304,8 +381,113 @@ pub fn resolve_belief(store: &GraphStore, spec: &str) -> Result<(Hash, GraphNode
 }
 
 /// Persist an updated belief payload (same node id — identity is the claim).
+/// Keeps the node's current lifecycle state: a scan over an agent-proposed
+/// belief must never quietly approve it.
 pub fn save_belief(store: &GraphStore, node: &GraphNode) -> Result<Hash> {
     let mut node = node.clone();
     node.updated_at = now_micros();
-    store.put_node(&node, NodeState::Active)
+    let state = store
+        .node_meta(&node.id())?
+        .map(|m| m.state)
+        .unwrap_or(NodeState::Active);
+    store.put_node(&node, state)
+}
+
+// ---------------------------------------------------------------------------
+// Evidence / scope verification against an anchor tree (shared by the CLI
+// and the agent SDK so an agent-proposed belief is held to the same bar).
+// ---------------------------------------------------------------------------
+
+/// `PATH:START-END` → (path, start, end); lines are 1-based, inclusive.
+pub fn parse_evidence_spec(s: &str) -> Result<(String, usize, usize)> {
+    let bad = || Error::Other(format!("evidence {s:?} must be PATH:START-END"));
+    let (path, span) = s.rsplit_once(':').ok_or_else(bad)?;
+    let (a, b) = span.split_once('-').ok_or_else(bad)?;
+    let start: usize = a.parse().map_err(|_| bad())?;
+    let end: usize = b.parse().map_err(|_| bad())?;
+    if start == 0 || end < start {
+        return Err(Error::Other(format!(
+            "evidence {s:?}: lines are 1-based and START <= END"
+        )));
+    }
+    Ok((path.to_string(), start, end))
+}
+
+/// `PATH:NAME` → symbol ref.
+pub fn parse_symbol_spec(s: &str) -> Result<SymbolRef> {
+    let (path, name) = s
+        .rsplit_once(':')
+        .ok_or_else(|| Error::Other(format!("symbol {s:?} must be PATH:NAME")))?;
+    Ok(SymbolRef {
+        path: path.to_string(),
+        name: name.to_string(),
+    })
+}
+
+/// Build evidence entries against the anchor tree (`files` = flattened
+/// path → blob), verifying each file exists and the span fits it.
+pub fn verify_evidence(
+    objects: &gpp_core::ObjectStore,
+    files: &BTreeMap<String, Hash>,
+    specs: &[String],
+) -> Result<Vec<Evidence>> {
+    let mut out = Vec::new();
+    for spec in specs {
+        let (path, start, end) = parse_evidence_spec(spec)?;
+        let blob_hash = *files.get(&path).ok_or_else(|| {
+            Error::Other(format!("evidence file {path:?} not in the anchor tree"))
+        })?;
+        let content = objects.read::<gpp_core::Blob>(&blob_hash)?.content;
+        let lines = content.iter().filter(|b| **b == b'\n').count() + 1;
+        if end > lines {
+            return Err(Error::Other(format!(
+                "evidence {spec:?}: file has only {lines} line(s)"
+            )));
+        }
+        out.push(Evidence {
+            path,
+            span: (start, end),
+            blob_hash,
+        });
+    }
+    Ok(out)
+}
+
+/// Verify symbol refs resolve at the anchor (typo guard). Returns warnings
+/// for files without a tree-sitter parser (they degrade to path matching).
+pub fn verify_symbols(
+    objects: &gpp_core::ObjectStore,
+    files: &BTreeMap<String, Hash>,
+    symbols: &[SymbolRef],
+) -> Result<Vec<String>> {
+    let mut warnings = Vec::new();
+    for s in symbols {
+        let blob_hash = files.get(&s.path).ok_or_else(|| {
+            Error::Other(format!("symbol file {:?} not in the anchor tree", s.path))
+        })?;
+        let content = objects.read::<gpp_core::Blob>(blob_hash)?.content;
+        match gpp_diff::parser_for_path(&s.path) {
+            Ok(parser) => {
+                let decls = gpp_diff::parse_declarations(parser.as_ref(), &content)
+                    .map_err(|e| Error::Other(format!("parsing {}: {e}", s.path)))?;
+                if !decls.iter().any(|d| d.name == s.name) {
+                    return Err(Error::Other(format!(
+                        "symbol {:?} not found in {} (tree-sitter sees: {})",
+                        s.name,
+                        s.path,
+                        decls
+                            .iter()
+                            .map(|d| d.name.as_str())
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    )));
+                }
+            }
+            Err(_) => warnings.push(format!(
+                "no parser for {:?} — symbol {:?} will match at path level",
+                s.path, s.name
+            )),
+        }
+    }
+    Ok(warnings)
 }

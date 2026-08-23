@@ -22,7 +22,8 @@ mod store;
 
 pub use belief::{
     BeliefData, BeliefStatus, Cause, Evidence, Scope, SemanticInvalidator, StatusChange, SymbolRef,
-    add_belief, list_beliefs, resolve_belief, save_belief,
+    add_belief, add_belief_proposed, list_beliefs, parse_evidence_spec, parse_symbol_spec,
+    resolve_belief, save_belief, verify_evidence, verify_symbols,
 };
 pub use error::{Error, Result};
 pub use infer::{Suggestion, module_root, module_roots, suggest_modules};
@@ -32,7 +33,7 @@ pub use object::{
 };
 pub use project::{Projection, project};
 pub use query::{Pattern, QueryOpts, ResolvedPath, run as query};
-pub use stale::{ScanHit, ancestors, scan, scan_and_record};
+pub use stale::{ScanHit, ancestors, commits_since, scan, scan_and_record};
 pub use store::{EdgeIndexRow, GraphStore, NodeIndexRow, NodeMeta, active_node};
 
 #[cfg(test)]

@@ -51,6 +51,10 @@ pub enum EventType {
     SyncConflict,
     GraphexUpdateProposed,
     CostBudgetAlert,
+    /// A belief's scope was touched by history; its evidence is intact.
+    BeliefStaleCandidate,
+    /// A belief's evidence span changed or vanished — grounds gone.
+    BeliefInvalidated,
 }
 
 impl EventType {
@@ -68,6 +72,8 @@ impl EventType {
             EventType::SyncConflict => "sync.conflict",
             EventType::GraphexUpdateProposed => "graphex.update_proposed",
             EventType::CostBudgetAlert => "cost.budget_alert",
+            EventType::BeliefStaleCandidate => "belief.stale_candidate",
+            EventType::BeliefInvalidated => "belief.invalidated",
         }
     }
 }
@@ -88,6 +94,8 @@ pub fn event_catalog() -> Vec<&'static str> {
         SyncConflict,
         GraphexUpdateProposed,
         CostBudgetAlert,
+        BeliefStaleCandidate,
+        BeliefInvalidated,
     ]
     .iter()
     .map(|e| e.as_str())

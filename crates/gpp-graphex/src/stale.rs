@@ -331,6 +331,15 @@ pub fn scan_and_record(
     Ok((node, hits))
 }
 
+/// Number of first-parent changesets between `anchor` (exclusive) and
+/// `tip` (inclusive) — the "N commits since" half of a freshness envelope.
+/// Errors if `anchor` is not on `tip`'s first-parent chain.
+pub fn commits_since(objects: &ObjectStore, tip: Hash, anchor: Hash) -> Result<usize> {
+    Ok(chain_to_anchor(objects, tip, anchor)?
+        .len()
+        .saturating_sub(1))
+}
+
 /// Every changeset reachable from `from` (all parents, not just first) —
 /// the ancestor set used by `belief at` time-travel.
 pub fn ancestors(objects: &ObjectStore, from: Hash) -> Result<HashSet<Hash>> {

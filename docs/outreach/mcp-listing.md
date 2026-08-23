@@ -54,7 +54,7 @@ the repo's own working `.mcp.json`).
 
 `graphex_query`, `graphex_status`, `graphex_glossary`,
 `graphex_conventions`, `propose_changeset`, `propose_graph_update`,
-`report_cost`.
+`propose_belief`, `report_cost`.
 
 ## Links
 

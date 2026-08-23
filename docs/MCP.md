@@ -26,16 +26,17 @@ These are the tools the current build serves
 
 | Tool | Arguments | What it does |
 |---|---|---|
-| `graphex_query` | `pattern` (optional), `budget` (tokens, default 8000) | Project a tier-filtered slice of the knowledge graph as text: architecture, modules, decisions — and a **Beliefs** section where stale or invalidated beliefs carry ⚠/✗ flags, so the agent is warned in-context when a recorded fact has been overtaken by history. |
+| `graphex_query` | `pattern` (optional), `budget` (tokens, default 8000) | Project a tier-filtered slice of the knowledge graph as text: architecture, modules, decisions — and a **Beliefs** section where every belief carries a **freshness envelope**: its anchor changeset and date, how many commits have landed since, and — when history has ruled — ⚠ `stale candidate since cs:…` or ✗ `INVALIDATED at cs:…`, so the agent discounts a fact instead of trusting it. |
 | `graphex_status` | — | Node/edge counts for the graph. |
 | `graphex_glossary` | `term` (optional filter) | Domain glossary lookup. |
 | `graphex_conventions` | — | Coding conventions recorded in the graph. |
 | `propose_changeset` | `message` (required), `intent` (feature/fix/refactor/test/docs/chore) | Promote the pending timeline entries into a changeset. Returns the changeset id. Agent proposals land for human review like any other agent's work. |
 | `propose_graph_update` | `node_type`, `name` (required), `description`, `tier` | Suggest a new knowledge-graph node. It lands in the `Proposed` state for a human to approve — never applied silently. |
+| `propose_belief` | `claim` (required), `evidence` (`["path:start-end", …]`), `paths`, `symbols` (`["path:Name", …]`), `tier` | Record an **evidence-anchored belief** about the code — an agent-written note that history polices. Evidence spans are verified against the current changeset (same bar as `gpp belief add`); the belief is anchored there and lands `Proposed` for human approval (`gpp graphex pending` / `accept`). From the moment it exists, `gpp belief stale` / `bisect` track it: a later commit that changes an evidence span invalidates it and names the culprit. At least one of `evidence` / `paths` / `symbols` is required. |
 | `report_cost` | `changeset` (required), `model`, `input_tokens`, `output_tokens`, `cached_tokens`, `cost_microdollars` | Attribute token/compute usage to a changeset. Reports accumulate; costs are integer micro-dollars (1 = $0.000001). |
 
 `docs/GRAPHEX_PROTOCOL.md` specifies a larger planned tool surface
-(timeline, exploration branches, trust, policy, review). The seven above
+(timeline, exploration branches, trust, policy, review). The eight above
 are what `tools/list` returns today — anything else is spec, not build.
 
 The server's `initialize` response includes workflow instructions, so a
@@ -129,6 +130,14 @@ without an `id`) are accepted and ignored, and `ping` is supported.
    accumulate, so calling per-turn is fine.
 5. **Contribute knowledge.** Durable facts learned along the way go
    through `propose_graph_update` and wait for human approval.
+6. **Write down what could go stale.** Anything a future agent shouldn't
+   have to rediscover — and that a commit could silently break — goes
+   through `propose_belief` with the exact lines it rests on. Once a
+   human accepts it, it shows up in every later `graphex_query` with its
+   freshness envelope, and `gpp belief stale` emits a
+   `belief.stale_candidate` / `belief.invalidated` event to the approver
+   and maintainers the first time history moves against it (see
+   `gpp inbox` / `gpp notify`).
 
 For the staleness machinery behind step 1 — beliefs, evidence spans, and
 `gpp belief bisect` — see [`demos/belief-bisect/`](../demos/belief-bisect/)

@@ -259,3 +259,54 @@ bench, no 100k-clone bench, no CI gating.
 
 Docs updated: demo README (+matrix table + three verdict-flavor notes), blog
 (+"five repos, four languages" section), Show HN/r-rust/X drafts, README.
+
+## 2026-08-23 — 0.2.0: agent-written beliefs, freshness envelopes, event-driven invalidation
+
+Research pass (17 days after launch prep; nothing posted yet) found the
+category converging on our vocabulary without the mechanism: Sentra Code
+Memory markets bi-temporal "invalidated, not deleted" facts (ingestion-time
+validity, hosted); Mneme markets "agent-written notes that flag themselves
+stale" (mechanism undisclosed); the design-guide literature now prescribes a
+*staleness envelope in the read path* and *event-driven invalidation* as best
+practice. gpp had the stronger substrate for all three but exposed none of
+them legibly — and, concretely, an agent had **no way to write an
+evidence-anchored belief over MCP** (`propose_graph_update` takes only
+name/description). This release closes that.
+
+- **`propose_belief` MCP tool** (`gpp-cli/src/mcp.rs`, `gpp-sdk`
+  `AgentSession::propose_belief`). Claim + `evidence: ["path:start-end"]`
+  + `paths` + `symbols`, verified against the HEAD tree with the same
+  helpers `gpp belief add` uses (moved into `gpp-graphex`:
+  `verify_evidence`, `verify_symbols`, `parse_*_spec`). Lands as
+  `NodeState::Proposed` via `add_belief_proposed` (pending-proposal file,
+  audit log, `NodeSource::AgentProposed`); invisible to projections until
+  `gpp graphex accept`, but scanned from the moment it exists.
+  **Bug found and fixed on the way:** `save_belief` hard-coded
+  `NodeState::Active`, so a scan over a proposed belief would have
+  silently approved it. It now preserves the node's state (SDK test pins
+  this). `graphex accept` now records `approved_by` + `validated_at` on
+  agent proposals — it previously dropped that provenance.
+- **Freshness envelope** in every projection belief line
+  (`gpp-graphex/src/project.rs::freshness`, `stale::commits_since`):
+  `[anchored cs:X 2026-06-03 · 40 commits since]`,
+  `⚠ [stale candidate since cs:Y … — re-verify]`,
+  `✗ [INVALIDATED at cs:Z — evidence changed; do not rely on this]`.
+  Cheap: a first-parent walk to the anchor, no diffs. `GraphStore::gpp_dir`
+  accessor added so the projection can find the tip.
+- **Event-driven invalidation**: `gpp belief stale` emits
+  `belief.stale_candidate` / `belief.invalidated` (new `gpp-notify`
+  `EventType`s) on a status *transition* only — once, not per rescan — to
+  RBAC maintainers/owners, the belief's author, and the approver of an
+  agent proposal. The post-commit hook already runs the scan, so this is
+  live on every commit.
+- Tests: `gpp-sdk` (proposed → stays proposed through invalidation →
+  envelope after approval; evidence/scope/tier validation), `gpp-cli/tests/
+  belief_agent.rs` (full loop through the real MCP stdio server, inbox
+  count asserted = 1 across two scans). 177 → 179 workspace tests.
+- Version: whole workspace 0.1.0 → **0.2.0** (gpp-cli's 0.1.1 override
+  folded back in). `server.json` 0.2.0. Docs: MCP.md (8 tools, step 6),
+  README, crate README, listing copy, site + blog tool lists.
+- Also this day: repo-root `Dockerfile` for MCP directory health checks
+  (Glama) — pre-initialized Graphex repo so the server answers
+  `initialize`/`tools/list` unmounted; Glama badge on the awesome-mcp
+  PR; repo topics `codebase-memory`/`agent-memory`/`mcp-server`/`ai-memory`.
