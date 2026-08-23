@@ -3,8 +3,8 @@
 class Gpp < Formula
   desc "AI-native version control system"
   homepage "https://github.com/mahabubul470/gpp"
-  url "https://github.com/mahabubul470/gpp/archive/refs/tags/v0.1.0.tar.gz"
-  sha256 "aca859e00ca4bd8b5c7559137264bf2ec549cba5744db0666fb1cc2fa778197e"
+  url "https://github.com/mahabubul470/gpp/archive/refs/tags/v0.2.0.tar.gz"
+  sha256 "fd6b6ebd04ec8d920c98d88f142d29e99c1c06ea09f0cb650c0cad873ec064a0"
   license "MIT"
   head "https://github.com/mahabubul470/gpp.git", branch: "main"
 
