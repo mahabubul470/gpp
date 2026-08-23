@@ -24,7 +24,49 @@ pub fn git_import(args: &GitImportArgs, repo_override: Option<&Path>) -> Result<
         "Imported {} commit(s) ({} already present), set {} branch ref(s)",
         stats.commits_imported, stats.commits_skipped, stats.branches_set
     );
+
+    // Importing from a *sibling* checkout into an empty gpp working dir
+    // would leave HEAD's tree with no files on disk — and the next
+    // `promote` would snapshot that emptiness as a deletion of every
+    // imported file. Materialise HEAD once when the working dir is empty;
+    // never touch a checkout that already has content.
+    if working_dir_is_empty(&repo.root)? {
+        let written = materialize_head(&repo)?;
+        if written > 0 {
+            println!("Materialised {written} file(s) from HEAD into the working directory");
+        }
+    }
     Ok(())
+}
+
+fn working_dir_is_empty(root: &Path) -> Result<bool> {
+    for entry in std::fs::read_dir(root)? {
+        let name = entry?.file_name();
+        if name != ".gpp" && name != ".git" {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
+/// Write HEAD's tree to the working directory. Returns files written.
+fn materialize_head(repo: &Repo) -> Result<usize> {
+    use gpp_core::{Blob, ObjectStore, flatten_tree};
+    use gpp_history::{Changeset, RefStore};
+    let Some(tip) = RefStore::open(&repo.gpp_dir()).head_tip()? else {
+        return Ok(0);
+    };
+    let store = ObjectStore::open(&repo.gpp_dir());
+    let cs: Changeset = store.read(&tip)?;
+    let files = flatten_tree(&store, &cs.tree)?;
+    for (path, blob) in &files {
+        let target = repo.root.join(path);
+        if let Some(parent) = target.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::write(&target, store.read::<Blob>(blob)?.content)?;
+    }
+    Ok(files.len())
 }
 
 pub fn git_export(args: &GitExportArgs, repo_override: Option<&Path>) -> Result<()> {

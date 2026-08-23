@@ -259,6 +259,43 @@ fn build_push(gpp: &Path, remote: &Msg, opts: SyncOptions) -> Result<Msg> {
     })
 }
 
+/// Is `anc` reachable from `tip` through changeset parents (any parent, not
+/// just first)? `anc == tip` counts. Bounded by the objects we actually
+/// hold — an unreadable changeset simply ends that branch of the walk.
+fn is_ancestor(store: &ObjectStore, anc: Hash, tip: Hash) -> bool {
+    let mut seen = std::collections::HashSet::new();
+    let mut stack = vec![tip];
+    while let Some(id) = stack.pop() {
+        if id == anc {
+            return true;
+        }
+        if !seen.insert(id) {
+            continue;
+        }
+        if let Ok(cs) = store.read::<gpp_history::Changeset>(&id) {
+            stack.extend(cs.parents.iter().copied());
+        }
+    }
+    false
+}
+
+/// A peer label made safe for use inside a ref name (`127.0.0.1:49876` →
+/// `127-0-0-1-49876`; `A` → `A`).
+fn ref_label(peer: &str) -> String {
+    let s: String = peer
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || matches!(c, '-' | '_') {
+                c
+            } else {
+                '-'
+            }
+        })
+        .collect();
+    let s = s.trim_matches('-').to_string();
+    if s.is_empty() { "peer".into() } else { s }
+}
+
 /// Apply a received Push to the local repo.
 fn apply_push(gpp: &Path, peer_name: &str, m: Msg, rep: &mut SyncReport) -> Result<()> {
     let Msg::Push {
@@ -293,10 +330,20 @@ fn apply_push(gpp: &Path, peer_name: &str, m: Msg, rep: &mut SyncReport) -> Resu
                 rep.refs_adopted += 1;
             }
             Some(local) if local == tip => {}
+            // Peer is strictly ahead of us: fast-forward. (Peer strictly
+            // behind: nothing to do — it adopts ours on its own pull.)
+            Some(local) if is_ancestor(&store, local, tip) => {
+                refstore
+                    .write_ref(&name, tip)
+                    .map_err(|e| Error::Other(e.to_string()))?;
+                rep.refs_adopted += 1;
+            }
+            Some(local) if is_ancestor(&store, tip, local) => {}
             Some(_) => {
                 // Divergent: preserve the peer's as a fork; never auto-merge.
-                // (`@` is not a valid ref char, so use a dotted form.)
-                let fork = format!("{name}.fork.{peer_name}");
+                // (`@` is not a valid ref char, so use a dotted form, and
+                // sanitise the peer label — it may be a socket address.)
+                let fork = format!("{name}.fork.{}", ref_label(peer_name));
                 refstore
                     .write_ref(&fork, tip)
                     .map_err(|e| Error::Other(e.to_string()))?;

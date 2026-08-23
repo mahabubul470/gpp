@@ -330,3 +330,35 @@ name/description). This release closes that.
   promote → silent; evidence change → inline line + exactly one event with
   no hook), the invalidated-refusal, and a stale-candidate → agent
   reaffirm → clean envelope round trip. 179 → 180.
+
+## 2026-08-23 (later still) — P0.5 integration suite; three cross-layer bugs
+
+`crates/gpp-cli/tests/integration.rs`, four tests driving the real binary
+across layer boundaries. Three of four failed on first run — all on real
+defects, none on the tests:
+
+1. **Sync treated a fast-forward as a fork, then crashed naming it.**
+   `apply_push` only knew "same tip" vs "different tip"; a peer whose
+   branch strictly descended from ours was forked, and the fork ref was
+   named `main.fork.<peer label>` where the serve side's label is the
+   peer's socket address (`127.0.0.1:49876`) — invalid ref chars, so the
+   whole sync aborted ("connection reset" on the client). Fix: ancestry
+   check over changeset parents (`is_ancestor`): peer ahead → adopt;
+   peer behind → no-op; genuinely divergent → fork, with the label
+   sanitised (`ref_label`). Existing fork test unchanged.
+2. **`git-import` from a sibling checkout left the working dir empty.**
+   History was recorded but no files were written, so the next `promote`
+   snapshotted an empty tree — exported as a commit deleting every legacy
+   file. Fix: after import, if the working dir has no content (only
+   `.gpp`/`.git`), materialise HEAD's tree once. A populated checkout is
+   never touched.
+3. **`git-export` to a repo that is not the import source referenced
+   parents the target did not hold.** The cs→git map is repo-wide; export
+   trusted it blindly. Fix: a mapped commit counts as present only if the
+   target has it; missing ones are recreated in the target and resolved
+   locally, without clobbering the original import mapping.
+
+Also surfaced: `gpp log` never showed an imported changeset's
+`git_commit` — added a `Git:` line. And there is no `gpp clone`; the
+test bootstraps the second peer by copying `.gpp/sync/repo_id` (TODO).
+180 → 184 tests. Version 0.2.2.

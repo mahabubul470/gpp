@@ -115,7 +115,7 @@ the text in a first comment if the text field feels long.)*
 >   AES-256-GCM; MessagePack + zstd node blobs
 > - P2P sync over Noise_XX (`snow`)
 > - `#![forbid(unsafe_code)]` across the workspace; `thiserror` in
->   libraries, `anyhow` in the CLI; 180 workspace tests (the belief
+>   libraries, `anyhow` in the CLI; 184 workspace tests (the belief
 >   engine has an e2e suite scripting a synthetic 7-commit repo in CI)
 >
 > New in 0.2.0: agents write beliefs themselves via an MCP

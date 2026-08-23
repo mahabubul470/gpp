@@ -549,6 +549,9 @@ pub fn log(args: &LogArgs, repo_override: Option<&Path>) -> Result<()> {
             println!("{g}changeset cs:{}", r.id);
             println!("  Author:  {} <{}>", a.name, a.identity);
             println!("  Date:    {}", fmt_age(r.changeset.timestamp));
+            if let Some(sha) = r.changeset.metadata.get("git_commit") {
+                println!("  Git:     {sha}");
+            }
             if let Some(i) = &r.intent {
                 println!("  Intent:  {:?}", i.intent_type);
                 if let Some(t) = &i.task_reference {

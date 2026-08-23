@@ -1,6 +1,6 @@
 # TODO — gpp (git++) Next Work
 
-Status snapshot: all 9 phases (0–8) implemented; 180 workspace tests pass;
+Status snapshot: all 9 phases (0–8) implemented; 184 workspace tests pass;
 clippy/fmt clean; line coverage 65.70% baseline (counts verified
 2026-07-12). P0.1–P0.3
 are now done — the remaining P0 work is the test-depth/integration pass
@@ -22,8 +22,8 @@ These are not new features; they are gaps between "milestone met" and
 user about protection outranks an internal quality gap; small high-risk
 fixes outrank large infra efforts; measurement precedes the work it gates.
 
-**▶ Next:** P0.3 (coverage measurement in CI) — cheap, and it makes the
-P0.4 depth pass data-driven instead of aspirational.
+**▶ Next:** P0.4 continuation (`gpp-notify` / `gpp-rbac` / `gpp-replay`
+depth) and a `gpp clone` command (P0.5 finding).
 
 - [x] **P0.1 — Policy enforcement points beyond promote** (Phase 4
   deviation). Done 2026-06-23 (`gpp-cli`). Wired the existing `PolicySet`
@@ -74,11 +74,22 @@ P0.4 depth pass data-driven instead of aspirational.
     2 → 17 tests. Remaining gap is the `run` event loop (needs a PTY).
   - [ ] Next: `gpp-sdk` (1 test, thinnest), then `gpp-notify` /
     `gpp-rbac` / `gpp-replay`.
-- [ ] **P0.5 — End-to-end integration tests** under `tests/integration/`:
-  two-peer sync round-trip, git-import→promote→git-export fidelity,
-  promote→review→merge gate, MCP query→propose→accept. The crate-level
-  suites are all isolated; nothing currently tests the layers together.
-  Largest; benefits from the per-crate depth (P0.4) landing first.
+- [x] **P0.5 — End-to-end integration tests.** Done 2026-08-23 as
+  `crates/gpp-cli/tests/integration.rs` (drives the real binary across
+  layers; a workspace-level `tests/` dir is not a crate): two-peer sync
+  over a live `sync serve` socket both directions; git-import → promote →
+  git-export with byte-level content + provenance checks;
+  promote → review → RBAC merge gate (pending refused, contributor
+  approval satisfies review but not RBAC, maintainer merges); MCP
+  query → propose → accept → query with audit trail. **Found and fixed
+  three real bugs on the first run** (see WORKLOG): sync mis-classified a
+  fast-forward as a fork and built an invalid fork ref name from the
+  peer's socket address (aborting the sync); `git-import` from a sibling
+  checkout left the working dir empty so the next promote would export a
+  deletion of every imported file; `git-export` to a repo other than the
+  import source referenced commits the target did not hold. *Open:* no
+  `gpp clone`/join — a second peer is bootstrapped by copying
+  `.gpp/sync/repo_id` (the test does this by hand); worth a command.
 - [x] **Passphrase-wrapped master key** (Phase 3 deviation). Done
   2026-05-18 (`gpp-graphex`): `$GPP_GRAPHEX_PASSPHRASE` (or
   `KeyStore::{generate,open}_with`) scrypt-wraps `master.age` at rest and

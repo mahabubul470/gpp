@@ -7,9 +7,9 @@ repository.workspace = true
 description = "gpp encrypted, versioned knowledge graph"
 
 [dependencies]
-gpp-core = { path = "../gpp-core", version = "0.2.1" }
-gpp-history = { path = "../gpp-history", version = "0.2.1" }
-gpp-diff = { path = "../gpp-diff", version = "0.2.1" }
+gpp-core = { path = "../gpp-core", version = "0.2.2" }
+gpp-history = { path = "../gpp-history", version = "0.2.2" }
+gpp-diff = { path = "../gpp-diff", version = "0.2.2" }
 rusqlite.workspace = true
 globset.workspace = true
 age.workspace = true

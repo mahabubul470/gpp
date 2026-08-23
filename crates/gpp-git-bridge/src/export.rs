@@ -41,10 +41,29 @@ pub fn export(gpp_dir: &Path, git_path: &Path) -> Result<ExportStats> {
         let mut chain = walk(&store, Some(tip), 1_000_000)?;
         chain.reverse();
 
+        // The hash map is repo-wide, but a mapped commit only counts as
+        // present if *this* target actually has it: exporting to a mirror
+        // that never saw the imported history must recreate those commits
+        // rather than reference objects the target does not hold. Commits
+        // recreated here are resolved locally and never clobber an existing
+        // mapping (which still points at the original import source).
+        let present = |id: &Hash| -> Result<Option<git2::Oid>> {
+            if let Some(existing) = map.commit_for_gpp(id)? {
+                let oid = git2::Oid::from_str(&existing)?;
+                if repo.find_commit(oid).is_ok() {
+                    return Ok(Some(oid));
+                }
+            }
+            Ok(None)
+        };
+        let mut resolved: std::collections::HashMap<Hash, git2::Oid> =
+            std::collections::HashMap::new();
+
         let mut last_oid = None;
         for rec in &chain {
-            if let Some(existing) = map.commit_for_gpp(&rec.id)? {
-                last_oid = Some(git2::Oid::from_str(&existing)?);
+            if let Some(oid) = present(&rec.id)? {
+                resolved.insert(rec.id, oid);
+                last_oid = Some(oid);
                 stats.commits_skipped += 1;
                 continue;
             }
@@ -52,11 +71,15 @@ pub fn export(gpp_dir: &Path, git_path: &Path) -> Result<ExportStats> {
             let tree_oid = build_git_tree(&repo, &store, &rec.changeset.tree)?;
             let tree = repo.find_tree(tree_oid)?;
 
-            // Parents: map gpp parents to git commits.
+            // Parents: gpp parents → git commits in this target.
             let mut parent_commits = Vec::new();
             for p in &rec.changeset.parents {
-                if let Some(po) = map.commit_for_gpp(p)? {
-                    parent_commits.push(repo.find_commit(git2::Oid::from_str(&po)?)?);
+                let po = match resolved.get(p) {
+                    Some(o) => Some(*o),
+                    None => present(p)?,
+                };
+                if let Some(po) = po {
+                    parent_commits.push(repo.find_commit(po)?);
                 }
             }
             let parent_refs: Vec<&git2::Commit> = parent_commits.iter().collect();
@@ -76,7 +99,10 @@ pub fn export(gpp_dir: &Path, git_path: &Path) -> Result<ExportStats> {
                 &tree,
                 &parent_refs,
             )?;
-            map.link(&oid.to_string(), &rec.id)?;
+            if map.commit_for_gpp(&rec.id)?.is_none() {
+                map.link(&oid.to_string(), &rec.id)?;
+            }
+            resolved.insert(rec.id, oid);
             last_oid = Some(oid);
             stats.commits_exported += 1;
         }

@@ -7,8 +7,8 @@ repository.workspace = true
 description = "gpp reproducible agent environment snapshots"
 
 [dependencies]
-gpp-core = { path = "../gpp-core", version = "0.2.1" }
-gpp-history = { path = "../gpp-history", version = "0.2.1" }
+gpp-core = { path = "../gpp-core", version = "0.2.2" }
+gpp-history = { path = "../gpp-history", version = "0.2.2" }
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 thiserror.workspace = true

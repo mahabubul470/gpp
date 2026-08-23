@@ -12,25 +12,25 @@ name = "gpp"
 path = "src/main.rs"
 
 [dependencies]
-gpp-core = { path = "../gpp-core", version = "0.2.1" }
-gpp-timeline = { path = "../gpp-timeline", version = "0.2.1" }
-gpp-history = { path = "../gpp-history", version = "0.2.1" }
-gpp-diff = { path = "../gpp-diff", version = "0.2.1" }
-gpp-git-bridge = { path = "../gpp-git-bridge", version = "0.2.1" }
-gpp-graphex = { path = "../gpp-graphex", version = "0.2.1" }
-gpp-sdk = { path = "../gpp-sdk", version = "0.2.1" }
-gpp-trust = { path = "../gpp-trust", version = "0.2.1" }
-gpp-policy = { path = "../gpp-policy", version = "0.2.1" }
-gpp-cost = { path = "../gpp-cost", version = "0.2.1" }
-gpp-anomaly = { path = "../gpp-anomaly", version = "0.2.1" }
-gpp-sync = { path = "../gpp-sync", version = "0.2.1" }
-gpp-replay = { path = "../gpp-replay", version = "0.2.1" }
-gpp-rbac = { path = "../gpp-rbac", version = "0.2.1" }
-gpp-review = { path = "../gpp-review", version = "0.2.1" }
-gpp-notify = { path = "../gpp-notify", version = "0.2.1" }
-gpp-remote = { path = "../gpp-remote", version = "0.2.1" }
-gpp-tui = { path = "../gpp-tui", version = "0.2.1" }
-gpp-deps = { path = "../gpp-deps", version = "0.2.1" }
+gpp-core = { path = "../gpp-core", version = "0.2.2" }
+gpp-timeline = { path = "../gpp-timeline", version = "0.2.2" }
+gpp-history = { path = "../gpp-history", version = "0.2.2" }
+gpp-diff = { path = "../gpp-diff", version = "0.2.2" }
+gpp-git-bridge = { path = "../gpp-git-bridge", version = "0.2.2" }
+gpp-graphex = { path = "../gpp-graphex", version = "0.2.2" }
+gpp-sdk = { path = "../gpp-sdk", version = "0.2.2" }
+gpp-trust = { path = "../gpp-trust", version = "0.2.2" }
+gpp-policy = { path = "../gpp-policy", version = "0.2.2" }
+gpp-cost = { path = "../gpp-cost", version = "0.2.2" }
+gpp-anomaly = { path = "../gpp-anomaly", version = "0.2.2" }
+gpp-sync = { path = "../gpp-sync", version = "0.2.2" }
+gpp-replay = { path = "../gpp-replay", version = "0.2.2" }
+gpp-rbac = { path = "../gpp-rbac", version = "0.2.2" }
+gpp-review = { path = "../gpp-review", version = "0.2.2" }
+gpp-notify = { path = "../gpp-notify", version = "0.2.2" }
+gpp-remote = { path = "../gpp-remote", version = "0.2.2" }
+gpp-tui = { path = "../gpp-tui", version = "0.2.2" }
+gpp-deps = { path = "../gpp-deps", version = "0.2.2" }
 globset.workspace = true
 clap.workspace = true
 anyhow.workspace = true
