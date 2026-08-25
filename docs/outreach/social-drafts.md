@@ -38,7 +38,7 @@ everyday-fact memory, and gpp claims no score on it.
 > about limits too: two clap beliefs die at an *undocumented* internal
 > file reorg — the true moment their file-anchored evidence vanished.
 >
-> As of 0.2.0 the agent writes the notes itself: over MCP,
+> The agent writes the notes itself: over MCP,
 > `propose_belief` records a claim plus the exact lines it rests on,
 > verified against the current changeset. A human approves it; from
 > then on history polices it — every later `graphex_query` shows the
@@ -57,6 +57,11 @@ everyday-fact memory, and gpp claims no score on it.
 > indexer noticed — rather than at the changeset that caused it. gpp
 > anchors the claims on the code's own history, so the invalidation
 > event and the belief live in the same store.
+>
+> Try it: `cargo install gpp-cli` (or brew mahabubul470/tap/gpp; binaries
+> on the releases page). MCP server included — it's in the official MCP
+> Registry and runnable in Glama's browser sandbox if you want to poke at
+> the tools without installing anything.
 >
 > Repo: https://github.com/mahabubul470/gpp
 > Write-up: https://mahabubul470.github.io/gpp/blog/belief-bisect/
@@ -118,7 +123,7 @@ the text in a first comment if the text field feels long.)*
 >   libraries, `anyhow` in the CLI; 184 workspace tests (the belief
 >   engine has an e2e suite scripting a synthetic 7-commit repo in CI)
 >
-> New in 0.2.0: agents write beliefs themselves via an MCP
+> New in this week's 0.2.x: agents write beliefs themselves via an MCP
 > `propose_belief` tool (evidence spans verified against HEAD with the
 > same code path the CLI uses — the helpers live in `gpp-graphex`), which
 > land `Proposed` for human approval and are scanned from the moment
@@ -173,7 +178,7 @@ Evidence lines drift-tracked (64→59) with no false positives.
 or deletion = *invalidated* — grounds gone, not disproven. Semantic
 judgment is deliberately a v2 stub.
 
-**5b/** 0.2.0: the agent writes the belief itself over MCP
+**5b/** New: the agent writes the belief itself over MCP
 (`propose_belief` — claim + the exact lines it rests on). A human
 approves it; history polices it. Every later context query shows the
 anchor, commits since, and the commit that broke it. You get pinged the
